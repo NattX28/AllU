@@ -45,6 +45,7 @@ func AutoMigrate() {
 		&models.Template{},
 		&models.TemplateCourse{},
 		&models.Notification{},
+		&models.RefreshToken{},
 	)
 	if err != nil {
 		log.Fatal("Failed to auto migrate: ", err)
