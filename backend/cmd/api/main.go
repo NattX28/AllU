@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/NattX28/AllU/database"
+	"github.com/NattX28/AllU/internal/database"
 	"github.com/gofiber/fiber/v3"
 	"github.com/joho/godotenv"
 )
