@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Course struct {
 	Base
@@ -12,7 +16,7 @@ type Course struct {
 	Enrolled    int       `gorm:"default:0"`
 	StudyTime   string    `gorm:"not null"`
 	Deadline    time.Time `gorm:"not null"`
-	ProfessorID string    `gorm:"type:uuid;not null"`
+	ProfessorID uuid.UUID `gorm:"type:uuid;not null"`
 
 	// Relations
 	Professor   Professor

@@ -1,5 +1,7 @@
 package models
 
+import "github.com/google/uuid"
+
 type NotificationType string
 
 const (
@@ -11,7 +13,7 @@ const (
 
 type Notification struct {
 	Base
-	UserID  string           `gorm:"type:uuid;not null"`
+	UserID  uuid.UUID        `gorm:"type:uuid;not null"`
 	Type    NotificationType `gorm:"type:varchar(20);not null"`
 	Message string           `gorm:"not null"`
 	IsRead  bool             `gorm:"default:false"`
