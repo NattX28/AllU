@@ -9,4 +9,6 @@ var (
 	ErrInvalidRefreshToken         = errors.New("invalid refresh token")
 	ErrInvalidAccessToken          = errors.New("invalid access token")
 	ErrAccessTokenExpired          = errors.New("access token expired")
+	ErrInvalidRequest              = errors.New("invalid request")
+	ErrInternalServer              = errors.New("internal server error")
 )

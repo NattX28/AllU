@@ -27,7 +27,7 @@ func (s *AuthService) NewAuthService(db *gorm.DB, rdb *redis.Client, jwtSecret s
 	}
 }
 
-func (s *AuthService) ValidateCredentials(req dto.LoginRequest) (*dto.AuthResponse, error) {
+func (s *AuthService) Login(req dto.LoginRequest) (*dto.AuthResponse, error) {
 	if req.Username == "" || req.Password == "" {
 		return nil, models.ErrUsernameAndPasswordRequired
 	}
