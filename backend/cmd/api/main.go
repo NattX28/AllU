@@ -4,7 +4,9 @@ import (
 	"log"
 
 	"github.com/NattX28/AllU/internal/database"
+	"github.com/NattX28/AllU/internal/server"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -15,7 +17,12 @@ func main() {
 
 	db := database.ConnectDataBase()
 
-	rdb := database.ConnnectRedis()
+	// rdb := database.ConnnectRedis()
 
-	StartServer(db, rdb)
+	// dummy redis
+	dummyRdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:0", // port that not real exists
+	})
+
+	server.Start(db, dummyRdb)
 }

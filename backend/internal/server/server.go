@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"log"
@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func StartServer(db *gorm.DB, rdb *redis.Client) {
+func Start(db *gorm.DB, rdb *redis.Client) {
 	app := fiber.New()
 
 	// Initialize
