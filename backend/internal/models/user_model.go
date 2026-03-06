@@ -13,6 +13,7 @@ const (
 type User struct {
 	Base
 	Name     string `gorm:"not null"`
+	Username string `gorm:"uniqueIndex;not null"`
 	Email    string `gorm:"uniqueIndex;not null"`
 	Password string `gorm:"not null"`
 	Role     Role   `gorm:"type:varchar(10);not null"`
