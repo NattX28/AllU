@@ -75,6 +75,27 @@ func (s *AuthService) Logout(refreshToken string) error {
 	return nil
 }
 
+func (s *AuthService) Refresh(refreshToken string) (string, error) {
+	// Find token in db
+	var token models.RefreshToken
+	if err := s.db.Preload("User").Where("token = ? AND revoked = ?", refreshToken, false).First(&token).Error; err != nil {
+		return "", models.ErrInvalidRefreshToken
+	}
+
+	// Verify token
+	if time.Now().After(token.ExpiresAt) {
+		return "", models.ErrInvalidRefreshToken
+	}
+
+	// Generate new access token
+	accessToken, err := s.generateAccessToken(&token.User)
+	if err != nil {
+		return "", err
+	}
+
+	return accessToken, nil
+}
+
 func (s *AuthService) generateAccessToken(user *models.User) (string, error) {
 	claims := dto.Claims{
 		UserID: user.ID.String(),
