@@ -61,6 +61,20 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.AuthResponse, error) {
 	}, nil
 }
 
+func (s *AuthService) Logout(refreshToken string) error {
+	var token models.RefreshToken
+	if err := s.db.Where("token = ? AND revoked = ?", refreshToken, false).First(&token).Error; err != nil {
+		return models.ErrInvalidRefreshToken
+	}
+
+	// Revoke token
+	if err := s.db.Model(&token).Update("revoked", true).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *AuthService) generateAccessToken(user *models.User) (string, error) {
 	claims := dto.Claims{
 		UserID: user.ID.String(),

@@ -9,4 +9,5 @@ func SetupAuthRoutes(r fiber.Router, h *handler.AuthHandler) {
 	auth := r.Group("/auth")
 
 	auth.Post("/login", h.Login)
+	auth.Post("/logout", h.Logout)
 }

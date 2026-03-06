@@ -55,3 +55,25 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		Token:  res.AccessToken,
 	})
 }
+
+func (h *AuthHandler) Logout(c fiber.Ctx) error {
+	refreshToken := c.Cookies("refresh_token")
+	if refreshToken == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "missing refresh token"})
+	}
+
+	if err := h.s.Logout(refreshToken); err != nil {
+		switch err {
+		case models.ErrInvalidRefreshToken:
+			return c.Status(401).JSON(fiber.Map{"error": err.Error()})
+		default:
+			return c.Status(500).JSON(fiber.Map{
+				"error": models.ErrInternalServer,
+			})
+		}
+	}
+	// Delete cookie
+	c.ClearCookie("refresh_token")
+
+	return c.JSON(fiber.Map{"message": "logged out successfully"})
+}
