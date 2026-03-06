@@ -4,20 +4,19 @@ import (
 	"log"
 
 	"github.com/NattX28/AllU/internal/database"
-	"github.com/gofiber/fiber/v3"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Warning: .env file not found, using system env")
+	}
 
 	database.ConnectDataBase()
 
-	app := fiber.New()
+	database.ConnnectRedis()
 
-	app.Get("/", func(c fiber.Ctx) {
-		c.SendString("Hello, From  AllU")
-	})
-
-	log.Fatal(app.Listen(":5000"))
+	StartServer()
 }
