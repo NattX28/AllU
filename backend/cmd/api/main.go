@@ -8,15 +8,14 @@ import (
 )
 
 func main() {
-	godotenv.Load()
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Warning: .env file not found, using system env")
 	}
 
-	database.ConnectDataBase()
+	db := database.ConnectDataBase()
 
-	database.ConnnectRedis()
+	rdb := database.ConnnectRedis()
 
-	StartServer()
+	StartServer(db, rdb)
 }

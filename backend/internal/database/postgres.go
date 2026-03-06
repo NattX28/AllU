@@ -10,9 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var DB *gorm.DB
-
-func ConnectDataBase() {
+func ConnectDataBase() *gorm.DB {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=require&default_query_exec_mode=describe_exec",
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASSWORD"),
@@ -22,7 +20,7 @@ func ConnectDataBase() {
 	)
 
 	var err error
-	DB, err = gorm.Open(postgres.New(postgres.Config{
+	db, err := gorm.Open(postgres.New(postgres.Config{
 		DSN:                  dsn,
 		PreferSimpleProtocol: true,
 	}), &gorm.Config{})
@@ -33,11 +31,12 @@ func ConnectDataBase() {
 
 	log.Printf("Connected to database: %s successfully", os.Getenv("DB_NAME"))
 
-	AutoMigrate()
+	AutoMigrate(db)
+	return db
 }
 
-func AutoMigrate() {
-	err := DB.AutoMigrate(&models.User{},
+func AutoMigrate(db *gorm.DB) {
+	err := db.AutoMigrate(&models.User{},
 		&models.Student{},
 		&models.Professor{},
 		&models.Enrollment{},
