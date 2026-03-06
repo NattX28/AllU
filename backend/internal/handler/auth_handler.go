@@ -41,6 +41,14 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		}
 	}
 
+	// Set refresh token to session cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    res.RefreshToken,
+		HTTPOnly: true,
+		SameSite: "Lax",
+	})
+
 	return c.Status(200).JSON(dto.LoginResponse{
 		UserID: res.UserID,
 		Role:   res.Role,
