@@ -19,7 +19,7 @@ type AuthService struct {
 	jwtSecret string
 }
 
-func (s *AuthService) NewAuthService(db *gorm.DB, rdb *redis.Client, jwtSecret string) *AuthService {
+func NewAuthService(db *gorm.DB, rdb *redis.Client, jwtSecret string) *AuthService {
 	return &AuthService{
 		db:        db,
 		rdb:       rdb,
