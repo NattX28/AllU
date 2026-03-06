@@ -38,9 +38,14 @@ func StartServer(db *gorm.DB, rdb *redis.Client) {
 		<-signChan
 		log.Println("Graceful shutting down...")
 
-		// close database connections
+		// Close redis connections
 		if err := rdb.Close(); err != nil {
 			log.Printf("Redis Close Error: %v\n", err)
+		}
+
+		// Close database connections
+		if sqlDB, err := db.DB(); err == nil {
+			sqlDB.Close()
 		}
 
 		// Close fiber app
