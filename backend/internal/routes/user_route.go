@@ -9,5 +9,6 @@ import (
 func SetUpUserRoutes(r fiber.Router, h *handler.UserHandler) {
 	user := r.Group("/user")
 
-	user.Get("/getme", middleware.AuthMiddleware, h.GetMe)
+	user.Get("/me", middleware.AuthMiddleware, h.GetMe)
+	user.Patch("/me", middleware.AuthMiddleware, h.UpdateMe)
 }

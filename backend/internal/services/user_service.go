@@ -1,6 +1,8 @@
 package services
 
 import (
+	"time"
+
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
 	"github.com/google/uuid"
@@ -52,4 +54,57 @@ func (s *UserService) mapToGetMeResponse(user *models.User) *dto.GetMeResponse {
 	}
 
 	return res
+}
+
+func (s *UserService) UpdateMe(userId uuid.UUID, req dto.UpdateMeRequest) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var user models.User
+		if err := tx.Preload("Student").Preload("Professor").First(&user, "id = ?", userId).Error; err != nil {
+			return err
+		}
+
+		// Update User (Only selected fields)
+		if req.Name != nil {
+			user.Name = *req.Name
+		}
+		if req.Gender != nil {
+			user.Gender = *req.Gender
+		}
+
+		// Parse birthday
+		if req.Birthday != nil {
+			birthday, err := time.Parse("2006-01-02", *req.Birthday)
+			if err != nil {
+				return err
+			}
+			user.Birthday = birthday
+		}
+
+		if err := tx.Save(&user).Error; err != nil {
+			return err
+		}
+
+		// Update child table(Student / Professor)
+		if user.Role == models.RoleStudent && user.Student != nil {
+			if req.Year != nil {
+				user.Student.Year = *req.Year
+			}
+			if req.Faculty != nil {
+				user.Student.Faculty = *req.Faculty
+			}
+			if req.Major != nil {
+				user.Student.Major = *req.Major
+			}
+			if err := tx.Save(user.Student).Error; err != nil {
+				return err
+			}
+		} else if user.Role == models.RoleProfessor && user.Professor != nil {
+			// Update professor details
+			if err := tx.Save(user.Professor).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }

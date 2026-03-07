@@ -24,3 +24,14 @@ type StudentDetail struct {
 type ProfessorDetail struct {
 	ProfessorID string `json:"professor_id"`
 }
+
+type UpdateMeRequest struct {
+	Name     *string `json:"name"`
+	Birthday *string `json:"birthday"`
+	Gender   *string `json:"gender"`
+
+	// specific fields
+	Year    *int    `json:"year,omitempty"`
+	Faculty *string `json:"faculty,omitempty"`
+	Major   *string `json:"major,omitempty"`
+}

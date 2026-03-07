@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
 	"github.com/NattX28/AllU/internal/services"
 	"github.com/gofiber/fiber/v3"
@@ -31,4 +32,19 @@ func (h *UserHandler) GetMe(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(res)
+}
+
+func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
+	userID := c.Locals("userID").(uuid.UUID)
+
+	var req dto.UpdateMeRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": models.ErrInvalidRequest})
+	}
+
+	if err := h.userService.UpdateMe(userID, req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": models.ErrInternalServer})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "profile updated successfully"})
 }
