@@ -54,8 +54,8 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.AuthResponse, error) {
 	}
 
 	return &dto.AuthResponse{
-		UserID:       user.ID.String(),
-		Role:         string(user.Role),
+		UserID:       user.ID,
+		Role:         user.Role,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil

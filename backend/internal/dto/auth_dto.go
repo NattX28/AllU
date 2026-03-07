@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/golang-jwt/jwt/v5"
+import (
+	"github.com/NattX28/AllU/internal/models"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
 
 type Claims struct {
 	UserID string `json:"user_id"`
@@ -14,14 +18,14 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
-	Token  string `json:"token"`
+	UserID uuid.UUID   `json:"user_id"`
+	Role   models.Role `json:"role"`
+	Token  string      `json:"token"`
 }
 
 type AuthResponse struct {
-	UserID       string
-	Role         string
+	UserID       uuid.UUID
+	Role         models.Role
 	AccessToken  string
 	RefreshToken string
 }
