@@ -49,6 +49,8 @@ func (s *UserService) mapToGetMeResponse(user *models.User) *dto.GetMeResponse {
 		if user.Professor != nil {
 			res.Professor = &dto.ProfessorDetail{
 				ProfessorID: user.Professor.ProfessorID,
+				Faculty:     user.Professor.Faculty,
+				Department:  user.Professor.Department,
 			}
 		}
 	}

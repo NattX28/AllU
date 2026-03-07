@@ -23,6 +23,8 @@ type StudentDetail struct {
 
 type ProfessorDetail struct {
 	ProfessorID string `json:"professor_id"`
+	Faculty     string `json:"faculty"`
+	Department  string `json:"department"`
 }
 
 type UpdateMeRequest struct {

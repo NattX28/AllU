@@ -6,6 +6,8 @@ type Professor struct {
 	Base
 	UserID      uuid.UUID `gorm:"type:uuid;uniqueIndex;not null;constraint:OnDelete:CASCADE"`
 	ProfessorID string    `gorm:"uniqueIndex;not null"`
+	Faculty     string    `gorm:"not null"`
+	Department  string    `gorm:"not null"`
 	// Relations
 	User   User
 	Course []Course
