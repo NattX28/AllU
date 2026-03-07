@@ -48,3 +48,18 @@ func (h *UserHandler) UpdateMe(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "profile updated successfully"})
 }
+
+func (h *UserHandler) GetAllUsers(c fiber.Ctx) error {
+	var filter dto.UserFilterQuery
+
+	if err := c.Bind().Query(&filter); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": models.ErrInvalidRequest})
+	}
+
+	res, err := h.userService.GetAllUsers(filter)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": models.ErrInternalServer})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}

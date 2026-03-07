@@ -37,3 +37,25 @@ type UpdateMeRequest struct {
 	Faculty *string `json:"faculty,omitempty"`
 	Major   *string `json:"major,omitempty"`
 }
+
+type UserFilterQuery struct {
+	Page      int         `query:"page"`
+	Limit     int         `query:"limit"`
+	Role      models.Role `query:"role"`
+	Search    string      `query:"search"`
+	Gender    string      `query:"gender"`
+	EntryYear int         `query:"entry_year"`
+	StartDate string      `query:"start_date"`
+	EndDate   string      `query:"end_date"`
+	Year      int         `query:"year"`
+	Faculty   string      `query:"faculty"`
+	Major     string      `query:"major"`
+	CourseID  string      `query:"course_id"`
+	SortBy    string      `query:"sort_by"`
+	Order     string      `query:"order"`
+}
+
+type UserListResponse struct {
+	Total int64           `json:"total"`
+	Data  []GetMeResponse `json:"data"`
+}

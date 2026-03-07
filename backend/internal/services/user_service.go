@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/NattX28/AllU/internal/dto"
@@ -109,4 +111,102 @@ func (s *UserService) UpdateMe(userId uuid.UUID, req dto.UpdateMeRequest) error 
 
 		return nil
 	})
+}
+
+func (s *UserService) GetAllUsers(filter dto.UserFilterQuery) (*dto.UserListResponse, error) {
+	var users []models.User
+	var total int64
+
+	// Base query
+	query := s.db.Model(&models.User{}).Distinct("users.*")
+
+	// Filter basic data (Gender / Role)
+	if filter.Gender != "" {
+		query = query.Where("users.gender = ?", filter.Gender)
+	}
+	if filter.Role != "" {
+		query = query.Where("users.role = ?", filter.Role)
+	}
+	if filter.Search != "" {
+		searchTerm := "%" + filter.Search + "%"
+		query = query.Where("(users.name Like ? OR users.email Like ?)", searchTerm, searchTerm)
+	}
+
+	// Filter with date range
+	if filter.StartDate != "" {
+		query = query.Where("users.created_at >= ?", filter.StartDate+" 00:00:00")
+	}
+	if filter.EndDate != "" {
+		query = query.Where("users.created_at <= ?", filter.EndDate+" 23:59:59")
+	}
+
+	query = query.Joins("LEFT JOIN students ON students.user_id = users.id").Joins("LEFT JOIN professors ON professors.user_id = users.id")
+
+	// Cross table filter
+	// (Faculty / Major / Year / EntryYear)
+	if filter.Faculty != "" || filter.Major != "" || filter.Year > 0 || filter.EntryYear > 0 || filter.CourseID != "" {
+		if filter.Faculty != "" {
+			query = query.Where("(students.faculty = ? OR professors.faculty = ?)", filter.Faculty, filter.Faculty)
+		}
+		if filter.Major != "" {
+			query = query.Where("students.major = ? OR professors.department = ?", filter.Major, filter.Major)
+		}
+		if filter.Year > 0 {
+			query = query.Where("students.year = ?", filter.Year)
+		}
+		if filter.EntryYear > 0 {
+			query = query.Where("students.entry_year = ?", filter.EntryYear)
+		}
+		// Filter with course ID
+		if filter.CourseID != "" {
+			query = query.Joins("LEFT JOIN enrollments ON enrollments.student_id = students.id").
+				Joins("LEFT JOIN courses ON courses.professor_id = professors.id").
+				Where("(enrollments.course_id = ? OR courses.course_id = ?)", filter.CourseID, filter.CourseID)
+		}
+	}
+
+	// Count total users before pagination
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
+
+	// Dynamic Sort
+	sortCol := "users.created_at"
+	switch filter.SortBy {
+	case "name":
+		sortCol = "users.name"
+	case "email":
+		sortCol = "users.email"
+	case "role":
+		sortCol = "users.role"
+	}
+
+	sortOrd := "DESC"
+	if strings.ToUpper(filter.Order) == "ASC" {
+		sortOrd = "ASC"
+	}
+	query = query.Order(fmt.Sprintf("%s %s", sortCol, sortOrd))
+
+	// Pagination
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	offset := (filter.Page - 1) * limit
+
+	err := query.Preload("Student").Preload("Professor").Limit(limit).Offset(offset).Find(&users).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	var userDTOs []dto.GetMeResponse
+	for _, user := range users {
+		userDTOs = append(userDTOs, *s.mapToGetMeResponse(&user))
+	}
+
+	return &dto.UserListResponse{
+		Total: total,
+		Data:  userDTOs,
+	}, nil
 }
