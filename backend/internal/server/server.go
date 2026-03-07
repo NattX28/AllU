@@ -18,17 +18,23 @@ func Start(db *gorm.DB, rdb *redis.Client) {
 	app := fiber.New()
 
 	// Initialize
+	// Auth
 	authService := services.NewAuthService(db, rdb, os.Getenv("JWT_SECRET"))
 	authHandler := handler.NewAuthHandler(authService)
+
+	// User
+	userService := services.NewUserService(db)
+	userHandler := handler.NewUserHandler(userService)
 
 	// Register routes
 	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("Hello, From  AllU")
 	})
 
-	routes.Register(app, routes.Handlers{
+	routes.Register(app, &routes.Handlers{
 		Auth: authHandler,
-	})
+		User: userHandler},
+	)
 
 	// Graceful shutdown
 	signChan := make(chan os.Signal, 1)

@@ -6,6 +6,7 @@ import (
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 func AuthMiddleware(secret string) fiber.Handler {
@@ -45,7 +46,16 @@ func AuthMiddleware(secret string) fiber.Handler {
 
 		// Store claims in context
 		claims := token.Claims.(*dto.Claims)
-		c.Locals("userID", claims.UserID)
+
+		// Convert claims.UserID to uuid.UUID
+		uid, err := uuid.Parse(claims.UserID)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"message": "invalid user ID format in token",
+			})
+		}
+
+		c.Locals("userID", uid)
 		c.Locals("role", claims.Role)
 
 		return c.Next()

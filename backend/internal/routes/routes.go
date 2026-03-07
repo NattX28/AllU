@@ -7,9 +7,10 @@ import (
 
 type Handlers struct {
 	Auth *handler.AuthHandler
+	User *handler.UserHandler
 }
 
-func Register(app *fiber.App, h Handlers) {
+func Register(app *fiber.App, h *Handlers) {
 	api := app.Group("/api")
 
 	SetupAuthRoutes(api, h.Auth)
