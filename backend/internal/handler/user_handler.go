@@ -108,3 +108,19 @@ func (h *UserHandler) GetUserByID(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "user updated successfully"})
 }
+
+func (h *UserHandler) DeleteUser(c fiber.Ctx) error {
+	idParam := c.Params("id")
+	targetID, err := uuid.Parse(idParam)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": models.ErrInvalidRequest})
+	}
+
+	if err := h.userService.DeleteUser(targetID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": models.ErrInternalServer,
+			"message": "failed to delete user",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "user deleted successfully"})
+}

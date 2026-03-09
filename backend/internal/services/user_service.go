@@ -370,3 +370,17 @@ func (s *UserService) UpdateAdminUser(targetId uuid.UUID, req dto.UpdateUserAdmi
 		return nil
 	})
 }
+
+func (s *UserService) DeleteUser(targetId uuid.UUID) error {
+	result := s.db.Delete(&models.User{}, "id = ?", targetId)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("User that want to delete not found")
+	}
+
+	return nil
+}

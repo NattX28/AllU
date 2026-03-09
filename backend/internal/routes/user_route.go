@@ -17,4 +17,5 @@ func SetUpUserRoutes(r fiber.Router, h *handler.UserHandler) {
 	admin.Get("", h.GetAllUsers)
 	admin.Post("", h.CreateUser)
 	admin.Patch("/:id", h.GetUserByID)
+	admin.Delete("/:id", h.DeleteUser)
 }
