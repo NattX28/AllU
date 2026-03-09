@@ -2,11 +2,13 @@ package routes
 
 import (
 	"github.com/NattX28/AllU/internal/handler"
+	"github.com/NattX28/AllU/internal/middleware"
 	"github.com/gofiber/fiber/v3"
 )
 
 func SetupCourseRoutes(r fiber.Router, h *handler.CourseHandler) {
-	course := r.Group("/course")
+	admin := r.Group("/admin", middleware.AuthMiddleware, middleware.RequireRole("admin"))
 
-	course.Post("", h.CreateCourse)
+	admin.Post("/courses", h.CreateCourse)
+	admin.Post("/section", h.CreateSection)
 }
