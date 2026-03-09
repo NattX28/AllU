@@ -8,18 +8,18 @@ type Template struct {
 	Name      string    `gorm:"not null"`
 
 	// Relations
-	Student Student
-	Course  []TemplateCourse
+	Section []Section `gorm:"many2many:template_sections;"`
+	Student Student   `gorm:"foreignKey:StudentID"`
 }
 
-type TemplateCourse struct {
+type TemplateSection struct {
 	Base
-	TemplateID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_template_course_code"`
-	CourseCode string    `gorm:"not null;uniqueIndex:idx_template_course_code"`
+	TemplateID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_template_section"`
+	// CourseID for preventing duplicate course in the same template
+	CourseID string `gorm:"type:uuid;not null;uniqueIndex:idx_template_section"`
+	// Use to take to check in redis
+	SectionID uuid.UUID `gorm:"type:uuid;not null"`
 
-	CourseID uuid.UUID `gorm:"type:uuid;not null"`
-
-	// Relations
-	Template Template
-	Course   Course
+	Template Template `gorm:"foreignKey:TemplateID"`
+	Section  Section  `gorm:"foreignKey:SectionID"`
 }

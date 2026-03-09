@@ -1,25 +1,27 @@
 package models
 
-import (
-	"time"
+type CourseCategory string
 
-	"github.com/google/uuid"
+const (
+	CoreCourse     CourseCategory = "CORE_COURSE"
+	ElectiveCourse CourseCategory = "ELECTIVE_COURSE"
+	GenEdCourse    CourseCategory = "GENED_COURSE"
 )
 
+// Raw course
 type Course struct {
-	Base
-	CourseCode  string    `gorm:"not null"`
-	Name        string    `gorm:"not null"`
-	Credit      int       `gorm:"not null"`
-	Section     int       `gorm:"not null"`
-	Capacity    int       `gorm:"not null"`
-	Enrolled    int       `gorm:"default:0"`
-	StudyTime   string    `gorm:"not null"`
-	Deadline    time.Time `gorm:"not null"`
-	ProfessorID uuid.UUID `gorm:"type:uuid;not null"`
+	ID             string         `gorm:"primaryKey"` // ex. CPE101
+	NameTh         string         `gorm:"not null"`
+	NameEn         string         `gorm:"not null"`
+	Credit         int            `gorm:"not null"`
+	Category       CourseCategory `gorm:"type:varchar(20);default:'CORE_COURSE';not null"`
+	MaxEntryYear   int            `gorm:"default:99"`
+	LectureHours   int            `gorm:"default:0"`
+	LabHours       int            `gorm:"default:0"`
+	SelfStudyHours int            `gorm:"default:0"`
 
-	// Relations
-	Professor   Professor
-	Enrollments []Enrollment
-	Templates   []TemplateCourse
+	Prerequisites     []Course `gorm:"many2many:course_prerequisites;foreignkey:ID;joinForeignKey:CourseID;References:ID;joinReferences:PrerequisiteID"`
+	IsPrerequisiteFor []Course `gorm:"many2many:course_prerequisites;foreignKey:ID;joinForeignKey:PrerequisiteID;References:ID;joinReferences:CourseID"`
+
+	Sections []Section `gorm:"foreignKey:CourseID"`
 }

@@ -13,10 +13,9 @@ const (
 
 type Enrollment struct {
 	Base
-	StudentID  uuid.UUID        `gorm:"type:uuid;not null;uniqueIndex:idx_std_course_code"`
-	CourseCode string           `gorm:"not null;uniqueIndex:idx_std_course_code"` // Lock course code
-	CourseID   uuid.UUID        `gorm:"type:uuid;not null"`                       // point to ID of section
-	Status     EnrollmentStatus `gorm:"type:varchar(20);default:'enrolled'"`
+	StudentID uuid.UUID        `gorm:"type:uuid;not null;uniqueIndex:idx_std_sec"`
+	SectionID uuid.UUID        `gorm:"type:uuid;not null;uniqueIndex:idx_std_sec"`
+	Status    EnrollmentStatus `gorm:"type:varchar(20);default:'enrolled'"`
 
 	// Grade
 	LetterGrade  string  `gorm:"type:varchar(2)"`
@@ -25,10 +24,7 @@ type Enrollment struct {
 	Semester     int `gorm:"not null"`
 	AcademicYear int `gorm:"not null"`
 
-	// For change section
-	RequestedSection int
-
 	// Relations
-	Student Student
-	Course  Course
+	Student Student `gorm:"foreignKey:StudentID"`
+	Section Section `gorm:"foreignKey:SectionID"`
 }
