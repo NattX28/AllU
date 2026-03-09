@@ -42,7 +42,7 @@ func AutoMigrate(db *gorm.DB) {
 		&models.Enrollment{},
 		&models.Course{},
 		&models.Template{},
-		&models.TemplateCourse{},
+		&models.TemplateSection{},
 		&models.Notification{},
 		&models.RefreshToken{},
 	)
