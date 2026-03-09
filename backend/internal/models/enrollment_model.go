@@ -19,8 +19,11 @@ type Enrollment struct {
 	Status     EnrollmentStatus `gorm:"type:varchar(20);default:'enrolled'"`
 
 	// Grade
-	LetterGrade  string `gorm:"type:varchar(2)"`
-	NumericGrade float64
+	LetterGrade  string  `gorm:"type:varchar(2)"`
+	NumericGrade float64 `gorm:"type:decimal(3,2)"`
+
+	Semester     int `gorm:"not null"`
+	AcademicYear int `gorm:"not null"`
 
 	// For change section
 	RequestedSection int
