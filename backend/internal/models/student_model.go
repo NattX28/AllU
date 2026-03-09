@@ -11,6 +11,8 @@ type Student struct {
 	Faculty   string    `gorm:"not null"`
 	Major     string    `gorm:"not null"`
 
+	GPAX float64 `gorm:"type:decimal(3,2);default:0.00"`
+
 	// Relations
 	User        User
 	Enrollments []Enrollment

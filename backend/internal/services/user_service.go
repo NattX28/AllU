@@ -42,9 +42,11 @@ func (s *UserService) mapToGetMeResponse(user *models.User) *dto.GetMeResponse {
 		if user.Student != nil {
 			res.Student = &dto.StudentDetail{
 				StudentID: user.Student.StudentID,
+				EntryYear: user.Student.EntryYear,
 				Year:      user.Student.Year,
 				Faculty:   user.Student.Faculty,
 				Major:     user.Student.Major,
+				GPAX:      user.Student.GPAX,
 			}
 		}
 	case models.RoleProfessor:
@@ -144,12 +146,18 @@ func (s *UserService) GetAllUsers(filter dto.UserFilterQuery) (*dto.UserListResp
 
 	// Cross table filter
 	// (Faculty / Major / Year / EntryYear)
-	if filter.Faculty != "" || filter.Major != "" || filter.Year > 0 || filter.EntryYear > 0 || filter.CourseID != "" {
+	if filter.Faculty != "" || filter.Major != "" || filter.Year > 0 || filter.EntryYear > 0 || filter.CourseID != "" || filter.MinGPAX > 0 || filter.MaxGPAX > 0 {
 		if filter.Faculty != "" {
 			query = query.Where("(students.faculty = ? OR professors.faculty = ?)", filter.Faculty, filter.Faculty)
 		}
 		if filter.Major != "" {
 			query = query.Where("students.major = ? OR professors.department = ?", filter.Major, filter.Major)
+		}
+		if filter.MinGPAX > 0 {
+			query = query.Where("students.gpax >= ?", filter.MinGPAX)
+		}
+		if filter.MaxGPAX > 0 {
+			query = query.Where("students.gpax <= ? AND users.role = ?", filter.MaxGPAX, models.RoleStudent)
 		}
 		if filter.Year > 0 {
 			query = query.Where("students.year = ?", filter.Year)
@@ -175,6 +183,8 @@ func (s *UserService) GetAllUsers(filter dto.UserFilterQuery) (*dto.UserListResp
 	switch filter.SortBy {
 	case "name":
 		sortCol = "users.name"
+	case "gpax":
+		sortCol = "students.gpax"
 	case "email":
 		sortCol = "users.email"
 	case "role":

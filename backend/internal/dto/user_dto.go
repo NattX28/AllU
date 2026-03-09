@@ -15,10 +15,12 @@ type GetMeResponse struct {
 }
 
 type StudentDetail struct {
-	StudentID string `json:"student_id"`
-	Year      int    `json:"year"`
-	Faculty   string `json:"faculty"`
-	Major     string `json:"major"`
+	StudentID string  `json:"student_id"`
+	EntryYear int     `json:"entry_year"`
+	Year      int     `json:"year"`
+	Faculty   string  `json:"faculty"`
+	Major     string  `json:"major"`
+	GPAX      float64 `json:"gpax"`
 }
 
 type ProfessorDetail struct {
@@ -46,6 +48,8 @@ type UserFilterQuery struct {
 	Gender    string      `query:"gender"`
 	EntryYear int         `query:"entry_year"`
 	StartDate string      `query:"start_date"`
+	MinGPAX   float64     `query:"min_gpax"`
+	MaxGPAX   float64     `query:"max_gpax"`
 	EndDate   string      `query:"end_date"`
 	Year      int         `query:"year"`
 	Faculty   string      `query:"faculty"`
