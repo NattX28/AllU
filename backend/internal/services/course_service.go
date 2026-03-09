@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
@@ -131,4 +133,56 @@ func (s *CourseService) UpdateCourse(id string, req dto.UpdateCourseRequest) err
 		}
 		return tx.Save(&course).Error
 	})
+}
+
+func (s *CourseService) UpdateSection(id uuid.UUID, req dto.UpdateSectionRequest) error {
+	var diff int64
+	var shouldUpdateRedis bool
+	var sectionID string
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var section models.Section
+		if err := tx.First(&section, "id = ?", id).Error; err != nil {
+			return err
+		}
+
+		// If has update Capacity
+		if req.Capacity != nil {
+			diff = int64(*req.Capacity - section.Capacity)
+			section.Capacity = *req.Capacity
+			shouldUpdateRedis = true
+			sectionID = section.ID.String()
+		}
+
+		// Update basic fields
+		if req.SectionNum != nil {
+			section.SectionNum = *req.SectionNum
+		}
+		if req.StudyTime != nil {
+			section.StudyTime = *req.StudyTime
+		}
+		if req.Deadline != nil {
+			parsedTime, err := time.Parse("2006-01-02 15:04:05", *req.Deadline)
+			if err != nil {
+				return fmt.Errorf("invalid deadline format: %v", err)
+			}
+			section.Deadline = parsedTime
+		}
+		if req.ProfessorID != nil {
+			section.ProfessorID = *req.ProfessorID
+		}
+
+		return tx.Save(&section).Error
+	})
+
+	if err == nil && shouldUpdateRedis {
+		// Update in Redis
+		ctx := context.Background()
+		key := fmt.Sprintf("section:%s:seats", sectionID)
+
+		if rerr := s.rdb.IncrBy(ctx, key, diff).Err(); rerr != nil {
+			log.Println("Warning: Failed to update Redis seats")
+		}
+	}
+	return err
 }

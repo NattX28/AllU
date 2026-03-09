@@ -6,6 +6,7 @@ import (
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/services"
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 )
 
 type CourseHandler struct {
@@ -73,5 +74,35 @@ func (h *CourseHandler) UpdateCourse(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "course" + *req.NameEn + "updated successfully",
+	})
+}
+
+func (h *CourseHandler) UpdateSection(c fiber.Ctx) error {
+	id := c.Params("id")
+	sectionID, err := uuid.Parse(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid section id",
+			"error":   err.Error(),
+		})
+	}
+
+	var req dto.UpdateSectionRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.courseService.UpdateSection(sectionID, req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to update section",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "section updated successfully",
 	})
 }

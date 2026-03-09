@@ -7,12 +7,16 @@ import (
 )
 
 func SetupCourseRoutes(r fiber.Router, h *handler.CourseHandler) {
-	admin := r.Group("/admin", middleware.AuthMiddleware, middleware.RequireRole("admin"))
+	// Public/Student routes
+
+	// Admin routes
+	admin := r.Group("/admin/courses", middleware.AuthMiddleware, middleware.RequireRole("admin"))
 
 	// Course
-	admin.Post("/courses", h.CreateCourse)
-	admin.Patch("/courses/:id", h.UpdateCourse) // id ex. CPE101
+	admin.Post("", h.CreateCourse)
+	admin.Patch("/:id", h.UpdateCourse) // id ex. CPE101
 
 	// Section
 	admin.Post("/section", h.CreateSection)
+	admin.Patch("/section/:id", h.UpdateSection) // id ex. 550e8400-e29b...
 }
