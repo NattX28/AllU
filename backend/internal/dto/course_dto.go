@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/google/uuid"
+import (
+	"github.com/NattX28/AllU/internal/models"
+	"github.com/google/uuid"
+)
 
 type CreateCourseRequest struct {
 	ID              string   `json:"id" validate:"required"` // ex. CPE101
@@ -22,4 +25,24 @@ type CreateSectionRequest struct {
 	StudyTime   string    `json:"study_time" validate:"required"`
 	Deadline    string    `json:"deadline" validate:"required"`
 	ProfessorID uuid.UUID `json:"professor_id" validate:"required"`
+}
+
+type UpdateCourseRequest struct {
+	NameTh          *string                `json:"name_th"`
+	NameEn          *string                `json:"name_en"`
+	Credits         *int                   `json:"credits"`
+	Category        *models.CourseCategory `json:"category"`
+	MaxEntryYear    *int                   `json:"max_entry_year"`
+	LectureHours    *int                   `json:"lecture_hours"`
+	LabHours        *int                   `json:"lab_hours"`
+	SelfStudyHours  *int                   `json:"self_study_hours"`
+	PrerequisiteIDs []string               `json:"prerequisite_ids"` // new send for replace
+}
+
+type UpdateSectionRequest struct {
+	SectionNum  *int       `json:"section_num"`
+	Capacity    *int       `json:"capacity"`
+	StudyTime   *string    `json:"study_time"`
+	Deadline    *string    `json:"deadline"`
+	ProfessorID *uuid.UUID `json:"professor_id"`
 }
