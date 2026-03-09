@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -76,5 +77,58 @@ func (s *CourseService) CreateSection(req dto.CreateSectionRequest) error {
 			return fmt.Errorf("failed to sync redis seats: %v", err)
 		}
 		return nil
+	})
+}
+
+func (s *CourseService) UpdateCourse(id string, req dto.UpdateCourseRequest) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var course models.Course
+		if err := tx.First(&course, "id = ?", id).Error; err != nil {
+			return err
+		}
+
+		// Update basic fields
+		if req.NameTh != nil {
+			course.NameTh = *req.NameTh
+		}
+		if req.NameEn != nil {
+			course.NameEn = *req.NameEn
+		}
+		if req.Credits != nil {
+			course.Credits = *req.Credits
+		}
+		if req.Category != nil {
+			course.Category = models.CourseCategory(*req.Category)
+		}
+		if req.MaxEntryYear != nil {
+			course.MaxEntryYear = *req.MaxEntryYear
+		}
+		if req.LectureHours != nil {
+			course.LectureHours = *req.LectureHours
+		}
+		if req.LabHours != nil {
+			course.LabHours = *req.LabHours
+		}
+		if req.SelfStudyHours != nil {
+			course.SelfStudyHours = *req.SelfStudyHours
+		}
+
+		// Association Replace for Prerequisites(Many-toMany)
+		if req.PrerequisiteIDs != nil {
+			var prereqs []models.Course
+			if len(req.PrerequisiteIDs) > 0 {
+				tx.Where("id IN ?", req.PrerequisiteIDs).Find(&prereqs)
+
+				if len(prereqs) != len(req.PrerequisiteIDs) {
+					return errors.New("Some prerequisite IDs are not in the system, please check and try again")
+				}
+			}
+
+			// Delete old and store in new join table
+			if err := tx.Model(&course).Association("Prerequisites").Replace(prereqs); err != nil {
+				return err
+			}
+		}
+		return tx.Save(&course).Error
 	})
 }

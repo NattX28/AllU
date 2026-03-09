@@ -53,3 +53,25 @@ func (h *CourseHandler) CreateSection(c fiber.Ctx) error {
 		"message": "section" + fmt.Sprint(req.SectionNum) + "created successfully",
 	})
 }
+
+func (h *CourseHandler) UpdateCourse(c fiber.Ctx) error {
+	id := c.Params("id")
+	var req dto.UpdateCourseRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.courseService.UpdateCourse(id, req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to update course",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "course" + *req.NameEn + "updated successfully",
+	})
+}
