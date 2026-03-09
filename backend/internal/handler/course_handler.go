@@ -148,3 +148,15 @@ func (h *CourseHandler) DeleteSection(c fiber.Ctx) error {
 		"message": "section deleted successfully",
 	})
 }
+
+func (h *CourseHandler) GetAllCourses(c fiber.Ctx) error {
+	res, err := h.courseService.GetAllCourses()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to get courses",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}

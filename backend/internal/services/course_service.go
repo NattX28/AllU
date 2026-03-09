@@ -226,3 +226,50 @@ func (s *CourseService) DeleteSection(id uuid.UUID) error {
 		return s.rdb.Del(ctx, key).Err()
 	})
 }
+
+func (s *CourseService) GetAllCourses() ([]dto.CourseResponse, error) {
+	var courses []models.Course
+	ctx := context.Background()
+
+	// Get courses from database(join 3 tables)
+	err := s.db.Preload("Sections.Professor.User").Find(&courses).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var response []dto.CourseResponse
+
+	// loop for each course
+	for _, c := range courses {
+		var sections []dto.SectionResponse
+
+		for _, sec := range c.Sections {
+			key := fmt.Sprintf("section:%s:seats", sec.ID)
+
+			val, err := s.rdb.Get(ctx, key).Int()
+			if err != nil {
+				// Default to capacity - enrolled(DB) if Redis lookup fails
+				val = sec.Capacity - sec.Enrolled
+			}
+
+			sections = append(sections, dto.SectionResponse{
+				ID:            sec.ID,
+				SectionNum:    sec.SectionNum,
+				Capacity:      sec.Capacity,
+				Available:     val,
+				StudyTime:     sec.StudyTime,
+				ProfessorName: sec.Professor.User.Name,
+			})
+		}
+
+		response = append(response, dto.CourseResponse{
+			ID:       c.ID,
+			NameTh:   c.NameTh,
+			NameEn:   c.NameEn,
+			Credits:  c.Credits,
+			Sections: sections,
+		})
+	}
+
+	return response, nil
+}

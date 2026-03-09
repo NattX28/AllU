@@ -46,3 +46,20 @@ type UpdateSectionRequest struct {
 	Deadline    *string    `json:"deadline"`
 	ProfessorID *uuid.UUID `json:"professor_id"`
 }
+
+type CourseResponse struct {
+	ID       string            `json:"id"`
+	NameTh   string            `json:"name_th"`
+	NameEn   string            `json:"name_en"`
+	Credits  int               `json:"credits"`
+	Sections []SectionResponse `json:"sections"`
+}
+
+type SectionResponse struct {
+	ID            uuid.UUID `json:"id"`
+	SectionNum    int       `json:"section_num"`
+	Capacity      int       `json:"capacity"`
+	Available     int       `json:"available"` // From Redis
+	StudyTime     string    `json:"study_time"`
+	ProfessorName string    `json:"professor_name"`
+}
