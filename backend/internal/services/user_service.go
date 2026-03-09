@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -219,4 +221,88 @@ func (s *UserService) GetAllUsers(filter dto.UserFilterQuery) (*dto.UserListResp
 		Total: total,
 		Data:  userDTOs,
 	}, nil
+}
+
+func (s *UserService) CreateUser(req dto.CreateUserRequest) error {
+	// Validate role fields before creating user
+	if err := s.validateRoleFields(req); err != nil {
+		return err
+	}
+
+	// Hashed password that admin creates
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Transaction 2 steps(2 tables)
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		isActive := false
+		if req.IsActive != nil {
+			isActive = *req.IsActive
+		}
+
+		mushChangePW := true
+		if req.MustChangePassword != nil {
+			mushChangePW = *req.MustChangePassword
+		}
+
+		newUser := models.User{
+			Username:           req.Username,
+			Email:              req.Email,
+			Password:           string(hashedPassword),
+			Name:               req.Name,
+			Role:               req.Role,
+			Gender:             req.Gender,
+			IsActive:           isActive,
+			MustChangePassword: mushChangePW,
+		}
+
+		if err := tx.Create(&newUser).Error; err != nil {
+			return err
+		}
+
+		switch req.Role {
+		case models.RoleStudent:
+			studentProfile := models.Student{
+				UserID:    newUser.ID,
+				StudentID: req.StudentID,
+				EntryYear: req.EntryYear,
+				Year:      req.Year,
+				Faculty:   req.Faculty,
+				Major:     req.Major,
+				GPAX:      0.00,
+			}
+			if err := tx.Create(&studentProfile).Error; err != nil {
+				return err
+			}
+		case models.RoleProfessor:
+			professorProfile := models.Professor{
+				UserID:      newUser.ID,
+				ProfessorID: req.ProfessorID,
+				Faculty:     req.Faculty,
+				Department:  req.Department,
+			}
+			if err := tx.Create(&professorProfile).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+// Helper function for validating role fields
+func (s *UserService) validateRoleFields(req dto.CreateUserRequest) error {
+	switch req.Role {
+	case models.RoleStudent:
+		if req.StudentID == "" || req.EntryYear == 0 || req.Faculty == "" || req.Major == "" {
+			return errors.New("student_id, entry_year, faculty, and major are required for student role")
+		}
+	case models.RoleProfessor:
+		if req.ProfessorID == "" || req.Faculty == "" || req.Department == "" {
+			return errors.New("professor_id, faculty, and department are required for professor role")
+		}
+	}
+	return nil
 }

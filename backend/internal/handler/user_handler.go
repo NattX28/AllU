@@ -63,3 +63,24 @@ func (h *UserHandler) GetAllUsers(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(res)
 }
+
+func (h *UserHandler) CreateUser(c fiber.Ctx) error {
+	var req dto.CreateUserRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "sent data is invalid",
+			"error":   err.Error(),
+		})
+	}
+
+	// Save in db 2 table(User + Profile)
+	if err := h.userService.CreateUser(req); err != nil {
+		return c.Status(fiber.StatusConflict).JSON(
+			fiber.Map{
+				"message": "failed to create user",
+				"error":   err.Error(),
+			})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "user created successfully (wait to activate)"})
+}

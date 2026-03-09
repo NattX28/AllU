@@ -15,4 +15,5 @@ func SetUpUserRoutes(r fiber.Router, h *handler.UserHandler) {
 	// prefix /admin/users
 	admin := r.Group("/admin/users", middleware.AuthMiddleware, middleware.RequireRole("admin"))
 	admin.Get("", h.GetAllUsers)
+	admin.Post("", h.CreateUser)
 }
