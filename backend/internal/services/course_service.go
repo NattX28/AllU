@@ -273,3 +273,56 @@ func (s *CourseService) GetAllCourses() ([]dto.CourseResponse, error) {
 
 	return response, nil
 }
+
+func (s *CourseService) GetCourseByID(id string) (*dto.CourseDetailResponse, error) {
+	var course models.Course
+	ctx := context.Background()
+
+	// retreive course + prerequisites + sections + professor
+	err := s.db.Preload("Prerequisites").Preload("Sections.Professor.User").First(&course, "id = ?", id).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// retreive sections seats from redis
+	var sections []dto.SectionResponse
+	for _, sec := range course.Sections {
+		key := fmt.Sprintf("section:%s:seats", sec.ID)
+
+		val, err := s.rdb.Get(ctx, key).Int()
+		if err != nil {
+			val = sec.Capacity - sec.Enrolled
+		}
+
+		sections = append(sections, dto.SectionResponse{
+			ID:            sec.ID,
+			SectionNum:    sec.SectionNum,
+			Capacity:      sec.Capacity,
+			Available:     val,
+			StudyTime:     sec.StudyTime,
+			ProfessorName: sec.Professor.User.Name,
+		})
+	}
+
+	// Map prerequisites to dto.PrereqResponse
+	var prereqs []dto.PrereqResponse
+	for _, prereq := range course.Prerequisites {
+		prereqs = append(prereqs, dto.PrereqResponse{
+			ID:     prereq.ID,
+			NameTh: prereq.NameTh,
+			NameEn: prereq.NameEn,
+		})
+	}
+
+	return &dto.CourseDetailResponse{
+		ID:            course.ID,
+		NameTh:        course.NameTh,
+		NameEn:        course.NameEn,
+		Credits:       course.Credits,
+		Description:   course.Description,
+		Category:      string(course.Category),
+		Prerequisites: prereqs,
+		Sections:      sections,
+	}, nil
+}

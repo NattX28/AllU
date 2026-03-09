@@ -160,3 +160,17 @@ func (h *CourseHandler) GetAllCourses(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(res)
 }
+
+func (h *CourseHandler) GetCourseByID(c fiber.Ctx) error {
+	id := c.Params("id") // ex. CPE101
+
+	res, err := h.courseService.GetCourseByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to get course",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}

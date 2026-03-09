@@ -63,3 +63,21 @@ type SectionResponse struct {
 	StudyTime     string    `json:"study_time"`
 	ProfessorName string    `json:"professor_name"`
 }
+
+type CourseDetailResponse struct {
+	ID          string `json:"id"`
+	NameTh      string `json:"name_th"`
+	NameEn      string `json:"name_en"`
+	Credits     int    `json:"credits"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	// Prerequisites
+	Prerequisites []PrereqResponse  `json:"prerequisites"`
+	Sections      []SectionResponse `json:"sections"`
+}
+
+type PrereqResponse struct {
+	ID     string `json:"id"`
+	NameEn string `json:"name_en"`
+	NameTh string `json:"name_th"`
+}

@@ -9,6 +9,7 @@ import (
 func SetupCourseRoutes(r fiber.Router, h *handler.CourseHandler) {
 	// Public/Student routes
 	r.Get("/courses", h.GetAllCourses)
+	r.Get("/courses/:id", h.GetCourseByID)
 
 	// Admin routes
 	admin := r.Group("/admin/courses", middleware.AuthMiddleware, middleware.RequireRole("admin"))
