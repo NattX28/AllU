@@ -14,9 +14,12 @@ func SetupCourseRoutes(r fiber.Router, h *handler.CourseHandler) {
 
 	// Course
 	admin.Post("", h.CreateCourse)
-	admin.Patch("/:id", h.UpdateCourse) // id ex. CPE101
+	admin.Patch("/:id", h.UpdateCourse)  // id ex. CPE101
+	admin.Delete("/:id", h.DeleteCourse) // id ex. CPE101
 
 	// Section
-	admin.Post("/section", h.CreateSection)
-	admin.Patch("/section/:id", h.UpdateSection) // id ex. 550e8400-e29b...
+	admin.Post("/sections", h.CreateSection)
+	admin.Patch("/sections/:id", h.UpdateSection)  // id ex. 550e8400-e29b...
+	admin.Delete("/sections/:id", h.DeleteSection) // id ex. 550e8400-e29b...
+
 }

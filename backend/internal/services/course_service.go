@@ -135,6 +135,33 @@ func (s *CourseService) UpdateCourse(id string, req dto.UpdateCourseRequest) err
 	})
 }
 
+func (s *CourseService) DeleteCourse(id string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var course models.Course
+		if err := tx.First(&course, "id = ?", id).Error; err != nil {
+			return err
+		}
+
+		// Check dependencies
+		count := tx.Model(&course).Association("Sections").Count()
+		if count > 0 {
+			return fmt.Errorf("cannot delete course %s with sections because it has %d sections", id, count)
+		}
+
+		// Clear relations
+		if err := tx.Model(&course).Association("Prerequisites").Clear(); err != nil {
+			return err
+		}
+
+		// Soft delete
+		if err := tx.Delete(&course).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 func (s *CourseService) UpdateSection(id uuid.UUID, req dto.UpdateSectionRequest) error {
 	var diff int64
 	var shouldUpdateRedis bool
@@ -185,4 +212,17 @@ func (s *CourseService) UpdateSection(id uuid.UUID, req dto.UpdateSectionRequest
 		}
 	}
 	return err
+}
+
+func (s *CourseService) DeleteSection(id uuid.UUID) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.Section{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+
+		// Instantly delete from cache
+		ctx := context.Background()
+		key := fmt.Sprintf("section:%s:seats", id)
+		return s.rdb.Del(ctx, key).Err()
+	})
 }

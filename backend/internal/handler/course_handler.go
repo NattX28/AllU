@@ -77,6 +77,26 @@ func (h *CourseHandler) UpdateCourse(c fiber.Ctx) error {
 	})
 }
 
+func (h *CourseHandler) DeleteCourse(c fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid course id",
+		})
+	}
+
+	if err := h.courseService.DeleteCourse(id); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to delete course",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "deleted" + id + "successfully",
+	})
+}
+
 func (h *CourseHandler) UpdateSection(c fiber.Ctx) error {
 	id := c.Params("id")
 	sectionID, err := uuid.Parse(id)
@@ -104,5 +124,27 @@ func (h *CourseHandler) UpdateSection(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "section updated successfully",
+	})
+}
+
+func (h *CourseHandler) DeleteSection(c fiber.Ctx) error {
+	id := c.Params("id")
+	sectionID, err := uuid.Parse(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid section id",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.courseService.DeleteSection(sectionID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to delete section",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "section deleted successfully",
 	})
 }
