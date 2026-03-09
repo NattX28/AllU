@@ -13,7 +13,7 @@ type Course struct {
 	ID             string         `gorm:"primaryKey"` // ex. CPE101
 	NameTh         string         `gorm:"not null"`
 	NameEn         string         `gorm:"not null"`
-	Credit         int            `gorm:"not null"`
+	Credits        int            `gorm:"not null"`
 	Category       CourseCategory `gorm:"type:varchar(20);default:'CORE_COURSE';not null"`
 	MaxEntryYear   int            `gorm:"default:99"`
 	LectureHours   int            `gorm:"default:0"`
