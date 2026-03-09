@@ -9,13 +9,27 @@ import (
 	"github.com/NattX28/AllU/internal/handler"
 	"github.com/NattX28/AllU/internal/routes"
 	"github.com/NattX28/AllU/internal/services"
+	"github.com/go-playground/validator/v10"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
+type structValidator struct {
+	validator *validator.Validate
+}
+
+func (v *structValidator) Validate(out any) error {
+	return v.validator.Struct(out)
+}
+
 func Start(db *gorm.DB, rdb *redis.Client) {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		StructValidator: &structValidator{
+			validator: validator.New(),
+		},
+	})
 
 	// Initialize
 	// Auth

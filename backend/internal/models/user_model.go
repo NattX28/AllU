@@ -20,6 +20,9 @@ type User struct {
 	Birthday time.Time
 	Gender   string `gorm:"type:varchar(10)"`
 
+	IsActive           bool `gorm:"default:false"`
+	MustChangePassword bool `gorm:"default:true"`
+
 	// Relations
 	Student   *Student
 	Professor *Professor

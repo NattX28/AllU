@@ -63,3 +63,27 @@ type UserListResponse struct {
 	Total int64           `json:"total"`
 	Data  []GetMeResponse `json:"data"`
 }
+
+type CreateUserRequest struct {
+	Username string      `json:"username" validate:"required,min=8"`
+	Email    string      `json:"email" validate:"required,email"`
+	Password string      `json:"password" validate:"required,min=8"`
+	Name     string      `json:"name" validate:"required"`
+	Role     models.Role `json:"role" validate:"required"`
+	Gender   string      `json:"gender" validate:"required"`
+
+	// Account status
+	IsActive           *bool `json:"is_active"`
+	MustChangePassword *bool `json:"must_change_password"`
+
+	// Student
+	StudentID string `json:"student_id"`
+	EntryYear int    `json:"entry_year"`
+	Year      int    `json:"year"`
+	Faculty   string `json:"faculty"`
+	Major     string `json:"major"`
+
+	// Professor
+	ProfessorID string `json:"professor_id"`
+	Department  string `json:"department"`
+}
