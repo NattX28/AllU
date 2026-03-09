@@ -84,3 +84,27 @@ func (h *UserHandler) CreateUser(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "user created successfully (wait to activate)"})
 }
+
+func (h *UserHandler) GetUserByID(c fiber.Ctx) error {
+	idParam := c.Params("id")
+	targetID, err := uuid.Parse(idParam)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": models.ErrInvalidRequest})
+	}
+
+	var req dto.UpdateUserAdminRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request body",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.userService.UpdateAdminUser(targetID, req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": models.ErrInternalServer,
+			"message": "failed to update user",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "user updated successfully"})
+}

@@ -87,3 +87,24 @@ type CreateUserRequest struct {
 	ProfessorID string `json:"professor_id"`
 	Department  string `json:"department"`
 }
+
+type UpdateUserAdminRequest struct {
+	// Basic data
+	Name               *string      `json:"name"`
+	Role               *models.Role `json:"role"`
+	IsActive           *bool        `json:"is_active"`
+	MustChangePassword *bool        `json:"must_change_password"`
+	Gender             *string      `json:"gender"`
+
+	// Student fields
+	StudentID *string  `json:"student_id"`
+	EntryYear *int     `json:"entry_year"`
+	Year      *int     `json:"year"`
+	Faculty   *string  `json:"faculty"`
+	Major     *string  `json:"major"`
+	GPAX      *float64 `json:"gpax"` // Special case
+
+	// Professor fields
+	ProfessorID *string `json:"professor_id"`
+	Department  *string `json:"department"`
+}

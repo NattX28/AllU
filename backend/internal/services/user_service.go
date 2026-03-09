@@ -306,3 +306,67 @@ func (s *UserService) validateRoleFields(req dto.CreateUserRequest) error {
 	}
 	return nil
 }
+
+func (s *UserService) UpdateAdminUser(targetId uuid.UUID, req dto.UpdateUserAdminRequest) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var user models.User
+		if err := tx.Preload("Student").Preload("Professor").First(&user, "id = ?", targetId).Error; err != nil {
+			return err
+		}
+
+		// Update Users(only sent)
+		if req.Name != nil {
+			user.Name = *req.Name
+		}
+		if req.Role != nil {
+			user.Role = *req.Role
+		}
+		if req.IsActive != nil {
+			user.IsActive = *req.IsActive
+		}
+		if req.MustChangePassword != nil {
+			user.MustChangePassword = *req.MustChangePassword
+		}
+		if req.Gender != nil {
+			user.Gender = *req.Gender
+		}
+
+		if err := tx.Save(&user).Error; err != nil {
+			return err
+		}
+
+		// Update from Role
+		if user.Role == models.RoleStudent {
+			if req.StudentID != nil {
+				user.Student.StudentID = *req.StudentID
+			}
+			if req.EntryYear != nil {
+				user.Student.EntryYear = *req.EntryYear
+			}
+			if req.Year != nil {
+				user.Student.Year = *req.Year
+			}
+			if req.Faculty != nil {
+				user.Student.Faculty = *req.Faculty
+			}
+			if req.Major != nil {
+				user.Student.Major = *req.Major
+			}
+			if req.GPAX != nil {
+				user.Student.GPAX = *req.GPAX
+			}
+		} else if user.Role == models.RoleProfessor {
+			if req.ProfessorID != nil {
+				user.Professor.ProfessorID = *req.ProfessorID
+			}
+			if req.Faculty != nil {
+				user.Professor.Faculty = *req.Faculty
+			}
+			if req.Department != nil {
+				user.Professor.Department = *req.Department
+			}
+		}
+
+		return nil
+	})
+}
