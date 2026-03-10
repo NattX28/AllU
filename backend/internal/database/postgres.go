@@ -41,9 +41,6 @@ func AutoMigrate(db *gorm.DB) {
 		&models.Professor{},
 		&models.Enrollment{},
 		&models.Course{},
-		&models.Template{},
-		&models.TemplateSection{},
-		&models.Notification{},
 		&models.RefreshToken{},
 	)
 	if err != nil {

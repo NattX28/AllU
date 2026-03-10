@@ -9,6 +9,6 @@ type Professor struct {
 	Faculty     string    `gorm:"not null"`
 	Department  string    `gorm:"not null"`
 	// Relations
-	User   User
-	Course []Course
+	User     User      `gorm:"foreignKey:UserID"`
+	Sections []Section `gorm:"foreignKey:ProfessorID"`
 }

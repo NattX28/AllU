@@ -17,6 +17,7 @@ type User struct {
 	Email    string `gorm:"uniqueIndex;not null"`
 	Password string `gorm:"not null"`
 	Role     Role   `gorm:"type:varchar(10);not null"`
+	Address  string `gorm:"not null"`
 	Birthday time.Time
 	Gender   string `gorm:"type:varchar(10)"`
 
@@ -24,6 +25,6 @@ type User struct {
 	MustChangePassword bool `gorm:"default:true"`
 
 	// Relations
-	Student   *Student
-	Professor *Professor
+	Student   *Student   `gorm:"foreignKey:UserID"`
+	Professor *Professor `gorm:"foreignKey:UserID"`
 }

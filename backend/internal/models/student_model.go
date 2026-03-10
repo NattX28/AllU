@@ -14,7 +14,6 @@ type Student struct {
 	GPAX float64 `gorm:"type:decimal(3,2);default:0.00"`
 
 	// Relations
-	User        User
-	Enrollments []Enrollment
-	Templates   []Template
+	User        User         `gorm:"foreignKey:UserID"`
+	Enrollments []Enrollment `gorm:"foreignKey:StudentID"`
 }
