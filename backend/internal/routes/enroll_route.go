@@ -11,4 +11,7 @@ func SetupEnrollRoutes(r fiber.Router, h *handler.EnrollHandler) {
 
 	// Polling
 	enroll.Get("/check-seats", h.CheckSeats)
+
+	// Confirm Enrollment
+	enroll.Post("/confirm", h.Confirm)
 }
