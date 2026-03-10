@@ -57,6 +57,9 @@ func AuthMiddleware(secret string) fiber.Handler {
 
 		c.Locals("userID", uid)
 		c.Locals("role", claims.Role)
+		if claims.ProfileID != "" {
+			c.Locals("profileID", uuid.MustParse(claims.ProfileID))
+		}
 
 		return c.Next()
 	}

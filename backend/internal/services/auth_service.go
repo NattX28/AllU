@@ -97,9 +97,18 @@ func (s *AuthService) Refresh(refreshToken string) (string, error) {
 }
 
 func (s *AuthService) generateAccessToken(user *models.User) (string, error) {
+	var profileID string
+
+	if user.Role == models.RoleStudent && user.Student != nil {
+		profileID = user.Student.ID.String()
+	} else if user.Role == models.RoleProfessor && user.Professor != nil {
+		profileID = user.Professor.ID.String()
+	}
+
 	claims := dto.Claims{
-		UserID: user.ID.String(),
-		Role:   string(user.Role),
+		UserID:    user.ID.String(),
+		Role:      string(user.Role),
+		ProfileID: profileID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 		},
