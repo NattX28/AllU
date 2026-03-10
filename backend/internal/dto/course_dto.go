@@ -19,12 +19,14 @@ type CreateCourseRequest struct {
 }
 
 type CreateSectionRequest struct {
-	CourseID    string    `json:"course_id" validate:"required"`
-	SectionNum  int       `json:"section_num" validate:"required,min=1"`
-	Capacity    int       `json:"capacity" validate:"required,min=1"`
-	StudyTime   string    `json:"study_time" validate:"required"`
-	Deadline    string    `json:"deadline" validate:"required"`
-	ProfessorID uuid.UUID `json:"professor_id" validate:"required"`
+	CourseID     string    `json:"course_id" validate:"required"`
+	SectionNum   int       `json:"section_num" validate:"required,min=1"`
+	Semester     int       `json:"semester" validate:"required,min=1,max=3"`
+	AcademicYear int       `json:"academic_year" validate:"required"`
+	Capacity     int       `json:"capacity" validate:"required,min=1"`
+	StudyTime    string    `json:"study_time" validate:"required"`
+	Deadline     string    `json:"deadline" validate:"required"`
+	ProfessorID  uuid.UUID `json:"professor_id" validate:"required"`
 }
 
 type UpdateCourseRequest struct {
@@ -58,6 +60,8 @@ type CourseResponse struct {
 type SectionResponse struct {
 	ID            uuid.UUID `json:"id"`
 	SectionNum    int       `json:"section_num"`
+	Semester      int       `json:"semester"`
+	AcademicYear  int       `json:"academic_year"`
 	Capacity      int       `json:"capacity"`
 	Available     int       `json:"available"` // From Redis
 	StudyTime     string    `json:"study_time"`

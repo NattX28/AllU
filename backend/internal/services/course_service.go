@@ -56,13 +56,15 @@ func (s *CourseService) CreateSection(req dto.CreateSectionRequest) error {
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		newSection := models.Section{
-			CourseID:    req.CourseID,
-			SectionNum:  req.SectionNum,
-			Capacity:    req.Capacity,
-			Enrolled:    0,
-			StudyTime:   req.StudyTime,
-			Deadline:    deadline,
-			ProfessorID: req.ProfessorID,
+			CourseID:     req.CourseID,
+			SectionNum:   req.SectionNum,
+			Semester:     req.Semester,
+			AcademicYear: req.AcademicYear,
+			Capacity:     req.Capacity,
+			Enrolled:     0,
+			StudyTime:    req.StudyTime,
+			Deadline:     deadline,
+			ProfessorID:  req.ProfessorID,
 		}
 
 		if err := tx.Create(&newSection).Error; err != nil {

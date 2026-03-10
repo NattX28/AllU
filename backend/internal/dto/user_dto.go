@@ -15,12 +15,25 @@ type GetMeResponse struct {
 }
 
 type StudentDetail struct {
-	StudentID string  `json:"student_id"`
-	EntryYear int     `json:"entry_year"`
-	Year      int     `json:"year"`
-	Faculty   string  `json:"faculty"`
-	Major     string  `json:"major"`
-	GPAX      float64 `json:"gpax"`
+	StudentID   string                   `json:"student_id"`
+	EntryYear   int                      `json:"entry_year"`
+	Year        int                      `json:"year"`
+	Faculty     string                   `json:"faculty"`
+	Major       string                   `json:"major"`
+	GPAX        float64                  `json:"gpax"`
+	Enrollments []EnrolledCourseResponse `json:"enrollments"`
+}
+
+type EnrolledCourseResponse struct {
+	CourseID     string   `json:"course_id"` // ex. CPE101
+	CourseName   string   `json:"course_name"`
+	SectionNum   int      `json:"section_num"`
+	Status       string   `json:"status"` // enrolled, dropped, graded
+	Grade        string   `json:"grade"`
+	Semester     int      `json:"semester"`
+	AcademicYear int      `json:"academic_year"`
+	MidtermScore *float64 `json:"midterm_score"`
+	FinalScore   *float64 `json:"final_score"`
 }
 
 type ProfessorDetail struct {

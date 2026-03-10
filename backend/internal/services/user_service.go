@@ -23,7 +23,7 @@ func NewUserService(db *gorm.DB) *UserService {
 
 func (s *UserService) GetMe(userId uuid.UUID) (*dto.GetMeResponse, error) {
 	var user models.User
-	if err := s.db.Preload("Student").Preload("Professor").Where("id = ?", userId).First(&user).Error; err != nil {
+	if err := s.db.Preload("Student.Enrollments.Section.Course").Preload("Professor").Where("id = ?", userId).First(&user).Error; err != nil {
 		return nil, err
 	}
 
@@ -42,6 +42,20 @@ func (s *UserService) mapToGetMeResponse(user *models.User) *dto.GetMeResponse {
 	switch user.Role {
 	case models.RoleStudent:
 		if user.Student != nil {
+			var enrolledCourses []dto.EnrolledCourseResponse
+
+			for _, en := range user.Student.Enrollments {
+				enrolledCourses = append(enrolledCourses, dto.EnrolledCourseResponse{
+					CourseID:     en.Section.CourseID,
+					CourseName:   en.Section.Course.NameEn,
+					SectionNum:   en.Section.SectionNum,
+					Status:       string(en.Status),
+					Grade:        en.LetterGrade,
+					MidtermScore: en.MidtermScore,
+					FinalScore:   en.FinalScore,
+				})
+			}
+
 			res.Student = &dto.StudentDetail{
 				StudentID: user.Student.StudentID,
 				EntryYear: user.Student.EntryYear,
