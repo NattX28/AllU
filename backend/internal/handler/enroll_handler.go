@@ -85,3 +85,32 @@ func (h *EnrollHandler) UpdateSchedule(c fiber.Ctx) error {
 		"message": "update schedule success",
 	})
 }
+
+func (h *EnrollHandler) Withdraw(c fiber.Ctx) error {
+	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "failed to get student ID",
+		})
+	}
+
+	var req dto.WithdrawRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "failed to parse request body",
+		})
+	}
+
+	secID, _ := uuid.Parse(req.SectionID)
+	err := h.enrollService.WithdrawCourse(studentID, secID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to withdraw enroll",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "withdraw success",
+	})
+}

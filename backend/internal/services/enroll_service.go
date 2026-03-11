@@ -214,3 +214,25 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 		return nil
 	})
 }
+
+func (s *EnrollService) WithdrawCourse(studentID uuid.UUID, sectionID uuid.UUID) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var en models.Enrollment
+		err := tx.Preload("Section").Where("student_id = ? AND section_id = ? AND status = ?", studentID, sectionID, "enrolled").First(&en).Error
+		if err != nil {
+			return errors.New("No enrollment found that can be withdrawn")
+		}
+
+		// Check before deadline
+		if time.Now().Before(en.Section.Deadline) {
+			return errors.New("Cannot withdraw course before deadline")
+		}
+
+		en.Status = "withdrawn"
+		if err := tx.Save(&en).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}

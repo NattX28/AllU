@@ -25,3 +25,7 @@ type ConfirmEnrollResponse struct {
 type UpdateScheduleRequest struct {
 	NewSectionIDs []string `json:"new_section_ids" validate:"required"`
 }
+
+type WithdrawRequest struct {
+	SectionID string `json:"section_id" validate:"required"`
+}
