@@ -59,3 +59,29 @@ func (h *EnrollHandler) Confirm(c fiber.Ctx) error {
 	}
 	return c.Status(fiber.StatusCreated).JSON(res)
 }
+
+func (h *EnrollHandler) UpdateSchedule(c fiber.Ctx) error {
+	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "failed to get student ID",
+		})
+	}
+
+	var req dto.ConfirmEnrollRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "failed to parse request body",
+		})
+	}
+	err := h.enrollService.UpdateEnrollment(studentID, req.SectionIDs)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to update enroll",
+			"error":   err.Error(),
+		})
+	}
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "update schedule success",
+	})
+}

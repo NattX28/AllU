@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
@@ -123,4 +124,93 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 		EnrolledIDs:  sectionIDs,
 		TotalCredits: totalCredits,
 	}, nil
+}
+
+func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) error {
+	ctx := context.Background()
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Check fac/major
+		var std models.Student
+		if err := tx.First(&std, "id = ?", studentID).Error; err != nil {
+			return errors.New("student not found")
+		}
+
+		// Check course that student is enrolled in
+		var currentEnrolls []models.Enrollment
+		tx.Preload("Section.Course").Where("student_id = ? AND status = ?", studentID, "enrolled").Find(&currentEnrolls)
+
+		// Diff
+		oldMap := make(map[string]models.Enrollment)
+		for _, en := range currentEnrolls {
+			oldMap[en.SectionID.String()] = en
+		}
+		newMap := make(map[string]bool)
+		for _, sid := range newSids {
+			newMap[sid] = true
+		}
+
+		// Check "major permissions" and total credits
+		var totalCredits int
+		for _, sidStr := range newSids {
+			var sec models.Section
+			if err := tx.Preload("Course").First(&sec, "id = ?", sidStr); err != nil {
+				return fmt.Errorf("section %s not found", sidStr)
+			}
+
+			// Deadline check
+			if time.Now().After(sec.Deadline) {
+				return fmt.Errorf("Course %s deadline passed", sec.CourseID)
+			}
+
+			// Allowed majors check
+
+			totalCredits += sec.Course.Credits
+		}
+
+		if totalCredits > 22 {
+			return fmt.Errorf("total credits exceeded for major %s", std.Major)
+		}
+
+		// Remove old enrollments that are not in newSids
+		for sidStr, en := range oldMap {
+			if !newMap[sidStr] {
+				key := fmt.Sprintf("section:%s:seats", sidStr)
+				s.rdb.Incr(ctx, key)
+
+				// Hard delete
+				tx.Unscoped().Delete(&en)
+
+				tx.Model(&models.Section{}).Where("id = ?", en.SectionID).Update("enrolled", gorm.Expr("enrolled - 1"))
+			}
+		}
+
+		for sidStr := range newMap {
+			// if it's new course, steal a seat
+			if _, exists := oldMap[sidStr]; !exists {
+				key := fmt.Sprintf("section:%s:seats", sidStr)
+
+				remaining, _ := s.rdb.Decr(ctx, key).Result()
+				if remaining < 0 {
+					s.rdb.Incr(ctx, key)
+					return fmt.Errorf("section %s is full", sidStr)
+				}
+
+				// Save to db
+				sid, _ := uuid.Parse(sidStr)
+				var sec models.Section
+				tx.First(&sec, "id = ?", sid)
+				tx.Create(&models.Enrollment{
+					StudentID:    std.ID,
+					SectionID:    sid,
+					Status:       "enrolled",
+					Semester:     sec.Semester,
+					AcademicYear: sec.AcademicYear,
+				})
+				tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
+			}
+		}
+
+		return nil
+	})
 }

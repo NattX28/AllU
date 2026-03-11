@@ -14,4 +14,6 @@ func SetupEnrollRoutes(r fiber.Router, h *handler.EnrollHandler) {
 
 	// Confirm Enrollment
 	enroll.Post("/confirm", h.Confirm)
+
+	enroll.Patch("/update-schedule", h.UpdateSchedule)
 }
