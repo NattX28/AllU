@@ -114,3 +114,18 @@ func (h *EnrollHandler) Withdraw(c fiber.Ctx) error {
 		"message": "withdraw success",
 	})
 }
+
+func (h *EnrollHandler) GetMyEnrollments(c fiber.Ctx) error {
+	studentID, _ := c.Locals("profileID").(uuid.UUID)
+	mode := c.Query("mode", "all")
+
+	res, err := h.enrollService.GetMyEnrollments(studentID, mode)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to get my enrollments",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}

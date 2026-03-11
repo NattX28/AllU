@@ -19,4 +19,7 @@ func SetupEnrollRoutes(r fiber.Router, h *handler.EnrollHandler) {
 
 	// Withdraw Enrollment
 	enroll.Delete("/withdraw", h.Withdraw)
+
+	// Get My Enrollments
+	enroll.Get("/my", h.GetMyEnrollments)
 }

@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"time"
+
 	"github.com/NattX28/AllU/internal/models"
 	"github.com/google/uuid"
 )
@@ -25,15 +27,22 @@ type StudentDetail struct {
 }
 
 type EnrolledCourseResponse struct {
-	CourseID     string   `json:"course_id"` // ex. CPE101
-	CourseName   string   `json:"course_name"`
-	SectionNum   int      `json:"section_num"`
-	Status       string   `json:"status"` // enrolled, dropped, graded
-	Grade        string   `json:"grade"`
-	Semester     int      `json:"semester"`
-	AcademicYear int      `json:"academic_year"`
-	MidtermScore *float64 `json:"midterm_score"`
-	FinalScore   *float64 `json:"final_score"`
+	EnrollmentID string `json:"enrollment_id"`
+	CourseID     string `json:"course_id"` // ex. CPE101
+	CourseName   string `json:"course_name"`
+	SectionNum   int    `json:"section_num"`
+	Status       string `json:"status"` // enrolled, dropped, graded
+	StudyTime    string `json:"study_time"`
+	Deadline     time.Time `json:"deadline"`
+	Semester     int    `json:"semester"`
+	AcademicYear int    `json:"academic_year"`
+
+	FinalScore      *float64 `json:"final_score,omitempty"`
+	MidtermScore    *float64 `json:"midterm_score,omitempty"`
+	AttendanceScore *float64 `json:"attendance_score,omitempty"`
+	AssignmentScore *float64 `json:"assignment_score,omitempty"`
+	TotalScore      float64  `json:"total_score,omitempty"`
+	Grade           string   `json:"grade"`
 }
 
 type ProfessorDetail struct {

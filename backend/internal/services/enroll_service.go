@@ -236,3 +236,36 @@ func (s *EnrollService) WithdrawCourse(studentID uuid.UUID, sectionID uuid.UUID)
 		return nil
 	})
 }
+
+func (s *EnrollService) GetMyEnrollments(studentID uuid.UUID, mode string) ([]dto.EnrolledCourseResponse, error) {
+	var enrolls []models.Enrollment
+
+	query := s.db.Preload("Section.Course").Where("student_id = ?", studentID)
+
+	// cases for UI
+	switch mode {
+	case "active":
+		query = query.Where("status = ?", "enrolled")
+	case "withdrawable":
+		query = query.Where("status = ? AND EXISTS (SELECT 1 FROM sections WHERE sections.id = enrollments.section_id AND sections.deadline < ?)", "enrolled", time.Now())
+	case "all":
+	}
+
+	err := query.Find(&enrolls).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var res []dto.EnrolledCourseResponse
+	for _, enroll := range enrolls {
+		res = append(res, dto.EnrolledCourseResponse{
+			EnrollmentID: enroll.ID.String(),
+			CourseID:     enroll.Section.Course.ID,
+			CourseName:   enroll.Section.Course.NameEn,
+			SectionNum:   enroll.Section.SectionNum,
+			Semester:     enroll.Semester,
+			AcademicYear: enroll.AcademicYear,
+		})
+	}
+	return res, nil
+}

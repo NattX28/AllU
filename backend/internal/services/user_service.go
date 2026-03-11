@@ -46,10 +46,15 @@ func (s *UserService) mapToGetMeResponse(user *models.User) *dto.GetMeResponse {
 
 			for _, en := range user.Student.Enrollments {
 				enrolledCourses = append(enrolledCourses, dto.EnrolledCourseResponse{
+					EnrollmentID: en.ID.String(),
 					CourseID:     en.Section.CourseID,
 					CourseName:   en.Section.Course.NameEn,
 					SectionNum:   en.Section.SectionNum,
 					Status:       string(en.Status),
+					StudyTime:    en.Section.StudyTime,
+					Deadline:     en.Section.Deadline,
+					Semester:     en.Semester,
+					AcademicYear: en.AcademicYear,
 					Grade:        en.LetterGrade,
 					MidtermScore: en.MidtermScore,
 					FinalScore:   en.FinalScore,
@@ -57,12 +62,13 @@ func (s *UserService) mapToGetMeResponse(user *models.User) *dto.GetMeResponse {
 			}
 
 			res.Student = &dto.StudentDetail{
-				StudentID: user.Student.StudentID,
-				EntryYear: user.Student.EntryYear,
-				Year:      user.Student.Year,
-				Faculty:   user.Student.Faculty,
-				Major:     user.Student.Major,
-				GPAX:      user.Student.GPAX,
+				StudentID:   user.Student.StudentID,
+				EntryYear:   user.Student.EntryYear,
+				Year:        user.Student.Year,
+				Faculty:     user.Student.Faculty,
+				Major:       user.Student.Major,
+				GPAX:        user.Student.GPAX,
+				Enrollments: enrolledCourses,
 			}
 		}
 	case models.RoleProfessor:
