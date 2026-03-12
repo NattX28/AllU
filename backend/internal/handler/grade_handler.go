@@ -87,3 +87,30 @@ func (h *GradeHandler) GetClassList(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(res)
 }
+
+func (h *GradeHandler) GetMyGrades(c fiber.Ctx) error {
+	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"message": "Unauthorized",
+		})
+	}
+
+	req := new(dto.GetMyGradesRequest)
+	if err := c.Bind().Query(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request body",
+			"error":   err.Error(),
+		})
+	}
+
+	res, err := h.gradeService.GetMyGrades(studentID, req.Semester, req.Year)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "can't get my grades",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}

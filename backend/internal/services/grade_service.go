@@ -139,3 +139,74 @@ func (s *GradeService) GetClassList(profID uuid.UUID, sectionID uuid.UUID) (*dto
 		Students:     studentItems,
 	}, nil
 }
+
+func (s *GradeService) GetMyGrades(studentID uuid.UUID, semester, year int) (*dto.MyGradesResponse, error) {
+	// Auto detect if semester and year are not provided
+	if semester == 0 || year == 0 {
+		// Get the latest semester and year
+		var lastest models.Enrollment
+		if err := s.db.Where("student_id = ?", studentID).Order("academic_year DESC, semester DESC").First(&lastest).Error; err != nil {
+			return &dto.MyGradesResponse{Courses: []dto.GradeDetails{}}, nil
+		}
+		semester = lastest.Semester
+		year = lastest.AcademicYear
+	}
+
+	// Get enrollments for the student in the given semester and year
+	var enrolls []models.Enrollment
+	err := s.db.Preload("Section.Course").Where("student_id = ? AND academic_year = ? AND semester = ?", studentID, year, semester).Find(&enrolls).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var courses []dto.GradeDetails
+	var totalQualityPoints float64
+	var totalCreditsForGPA int
+
+	for _, en := range enrolls {
+		courses = append(courses, dto.GradeDetails{
+			CourseID:   en.Section.CourseID,
+			CourseName: en.Section.Course.NameEn,
+			Credits:    en.Section.Course.Credits,
+			Attendance: en.AttendanceScore,
+			Assignment: en.AssignmentScore,
+			Midterm:    en.MidtermScore,
+			Final:      en.FinalScore,
+			Total:      en.TotalScore,
+			Grade:      en.LetterGrade,
+		})
+
+		// Calculate GPA
+		if en.Status == "graded" && en.LetterGrade != "" && en.LetterGrade != "W" && en.LetterGrade != "I" {
+			weight := s.ConvertGradeToWeight(en.LetterGrade)
+			totalQualityPoints += weight * float64(en.Section.Course.Credits)
+			totalCreditsForGPA += en.Section.Course.Credits
+		}
+	}
+
+	var TermGPA float64
+	if totalCreditsForGPA > 0 {
+		TermGPA = totalQualityPoints / float64(totalCreditsForGPA)
+	}
+	return &dto.MyGradesResponse{
+		Semester:     semester,
+		AcademicYear: year,
+		TermGPA:      TermGPA,
+		TotalCredits: totalCreditsForGPA,
+		Courses:      courses,
+	}, nil
+}
+
+func (s *GradeService) ConvertGradeToWeight(grade string) float64 {
+	weights := map[string]float64{
+		"A":  4.0,
+		"B+": 3.5,
+		"B":  3.0,
+		"C+": 2.5,
+		"C":  2.0,
+		"D+": 1.5,
+		"D":  1.0,
+		"F":  0.0,
+	}
+	return weights[grade]
+}

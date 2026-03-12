@@ -38,3 +38,28 @@ type ClassListResponse struct {
 	TotalStudent int                `json:"total_student"`
 	Students     []StudentGradeItem `json:"students"`
 }
+
+type GetMyGradesRequest struct {
+	Semester int `query:"semester,default=0"`
+	Year     int `query:"year,default=0"`
+}
+
+type GradeDetails struct {
+	CourseID   string   `json:"course_id"`
+	CourseName string   `json:"course_name"`
+	Credits    int      `json:"credits"`
+	Attendance *float64 `json:"attendance"`
+	Assignment *float64 `json:"assignment"`
+	Midterm    *float64 `json:"midterm"`
+	Final      *float64 `json:"final"`
+	Total      float64  `json:"total"`
+	Grade      string   `json:"grade"`
+}
+
+type MyGradesResponse struct {
+	Semester     int            `json:"semester"`
+	AcademicYear int            `json:"academic_year"`
+	TermGPA      float64        `json:"term_gpa"`
+	TotalCredits int            `json:"total_credits"`
+	Courses      []GradeDetails `json:"courses"`
+}

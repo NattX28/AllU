@@ -7,6 +7,7 @@ import (
 )
 
 func SetupGradeRoutes(r fiber.Router, h *handler.GradeHandler) {
+	// Professor routes
 	prof := r.Group("/professor", middleware.AuthMiddleware, middleware.RequireRole("professor"))
 
 	prof.Get("/sections", h.GetProfessorSections)
@@ -14,4 +15,9 @@ func SetupGradeRoutes(r fiber.Router, h *handler.GradeHandler) {
 	prof.Post("/grades", h.SubmitGrades)
 
 	prof.Get("/sections/:id/students", h.GetClassList)
+
+	// Student routes
+	student := r.Group("/grades", middleware.AuthMiddleware, middleware.RequireRole("student"))
+
+	student.Get("/my", h.GetMyGrades)
 }
