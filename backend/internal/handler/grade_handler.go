@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/services"
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -31,4 +32,32 @@ func (h *GradeHandler) GetProfessorSections(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(res)
+}
+
+func (h *GradeHandler) SubmitGrades(c fiber.Ctx) error {
+	profID, ok := c.Locals("profileID").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"message": "Unauthorized",
+		})
+	}
+
+	var req dto.SubmitGradeRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request body",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.gradeService.SubmitGrades(profID, req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "can't submit grades",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "scores and grades submitted successfully",
+	})
 }

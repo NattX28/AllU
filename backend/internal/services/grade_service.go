@@ -1,6 +1,8 @@
 package services
 
 import (
+	"errors"
+
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
 	"github.com/google/uuid"
@@ -38,4 +40,64 @@ func (s *GradeService) GetProfessorSections(profID uuid.UUID) ([]dto.ProfessorSe
 	}
 
 	return res, nil
+}
+
+func (s *GradeService) SubmitGrades(profID uuid.UUID, req dto.SubmitGradeRequest) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Check professor
+		var section models.Section
+		if err := tx.Where("id = ? AND professor_id = ?", req.SectionID, profID).First(&section).Error; err != nil {
+			return errors.New("section not found or professor does not own the section")
+		}
+
+		// Bulk update grade
+		for _, item := range req.Grades {
+			// find enrollment by enrollment_id
+			var en models.Enrollment
+			if err := tx.Where("id = ? AND section_id = ?", item.EnrollmentID, req.SectionID).First(&en).Error; err != nil {
+				return err
+			}
+
+			// Update scores only professor sent
+			if item.AttendanceScore != nil {
+				en.AssignmentScore = item.AttendanceScore
+			}
+			if item.AssignmentScore != nil {
+				en.AssignmentScore = item.AssignmentScore
+			}
+			if item.MidtermScore != nil {
+				en.MidtermScore = item.MidtermScore
+			}
+			if item.FinalScore != nil {
+				en.FinalScore = item.FinalScore
+			}
+
+			// calculate total score and grade
+			var total float64
+			if en.AttendanceScore != nil {
+				total += *en.AttendanceScore
+			}
+			if en.AssignmentScore != nil {
+				total += *en.AssignmentScore
+			}
+			if en.MidtermScore != nil {
+				total += *en.MidtermScore
+			}
+			if en.FinalScore != nil {
+				total += *en.FinalScore
+			}
+
+			en.TotalScore = total
+
+			if item.Grade != "" {
+				en.LetterGrade = item.Grade
+				en.Status = "graded"
+			}
+
+			if err := tx.Save(&en).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
