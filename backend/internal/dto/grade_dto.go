@@ -6,7 +6,7 @@ type ProfessorSectionResponse struct {
 	SectionID    uuid.UUID `json:"section_id"`
 	CourseID     string    `json:"course_id"`
 	CourseName   string    `json:"course_name"`
-	SectionNum   string    `json:"section_num"`
+	SectionNum   int       `json:"section_num"`
 	TotalStudent int       `json:"total_student"`
 	Semester     int       `json:"semester"`
 	AcademicYear int       `json:"academic_year"`
