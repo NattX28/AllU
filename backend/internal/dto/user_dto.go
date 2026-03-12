@@ -57,9 +57,10 @@ type ProfessorDetail struct {
 }
 
 type UpdateMeRequest struct {
-	Name     *string `json:"name"`
-	Birthday *string `json:"birthday"`
-	Gender   *string `json:"gender"`
+	Name     *string    `json:"name"`
+	Birthday *time.Time `json:"birthday"`
+	Address  *string    `json:"address"`
+	Gender   *string    `json:"gender"`
 
 	// specific fields
 	Year    *int    `json:"year,omitempty"`
@@ -97,6 +98,8 @@ type CreateUserRequest struct {
 	Password string      `json:"password" validate:"required,min=8"`
 	Name     string      `json:"name" validate:"required"`
 	Role     models.Role `json:"role" validate:"required"`
+	Address  string      `json:"address" validate:"required"`
+	Birthday time.Time   `json:"birthday" validate:"required"`
 	Gender   string      `json:"gender" validate:"required"`
 
 	// Account status
@@ -121,6 +124,8 @@ type UpdateUserAdminRequest struct {
 	Role               *models.Role `json:"role"`
 	IsActive           *bool        `json:"is_active"`
 	MustChangePassword *bool        `json:"must_change_password"`
+	Address            *string      `json:"address"`
+	Birthday           *time.Time   `json:"birthday"`
 	Gender             *string      `json:"gender"`
 
 	// Student fields

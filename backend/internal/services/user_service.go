@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
@@ -82,17 +81,13 @@ func (s *UserService) UpdateMe(userId uuid.UUID, req dto.UpdateMeRequest) error 
 		if req.Name != nil {
 			user.Name = *req.Name
 		}
-		if req.Gender != nil {
-			user.Gender = *req.Gender
+		if req.Address != nil {
+			user.Address = *req.Address
 		}
 
 		// Parse birthday
 		if req.Birthday != nil {
-			birthday, err := time.Parse("2006-01-02", *req.Birthday)
-			if err != nil {
-				return err
-			}
-			user.Birthday = birthday
+			user.Birthday = *req.Birthday
 		}
 
 		if err := tx.Save(&user).Error; err != nil {
