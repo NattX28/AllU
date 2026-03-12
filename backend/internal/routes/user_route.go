@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func SetUpUserRoutes(r fiber.Router, h *handler.UserHandler) {
+func SetupUserRoutes(r fiber.Router, h *handler.UserHandler) {
 	user := r.Group("/user", middleware.AuthMiddleware)
 	user.Get("/me", h.GetMe)
 	user.Patch("/me", h.UpdateMe)

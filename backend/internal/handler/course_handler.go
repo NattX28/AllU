@@ -13,6 +13,10 @@ type CourseHandler struct {
 	courseService *services.CourseService
 }
 
+func NewCourseHandler(courseService *services.CourseService) *CourseHandler {
+	return &CourseHandler{courseService: courseService}
+}
+
 func (h *CourseHandler) CreateCourse(c fiber.Ctx) error {
 	var req dto.CreateCourseRequest
 	if err := c.Bind().Body(&req); err != nil {

@@ -40,15 +40,35 @@ func Start(db *gorm.DB, rdb *redis.Client) {
 	userService := services.NewUserService(db)
 	userHandler := handler.NewUserHandler(userService)
 
+	// Course
+	courseService := services.NewCourseService(db, rdb)
+	courseHandler := handler.NewCourseHandler(courseService)
+
+	// Enroll
+	enrollService := services.NewEnrollService(db, rdb)
+	enrollHandler := handler.NewEnrollHandler(enrollService)
+
+	// Grade
+	gradeService := services.NewGradeService(db)
+	gradeHandler := handler.NewGradeHandler(gradeService)
+
+	// Import
+	importService := services.NewImportService(userService, courseService)
+	importHandler := handler.NewImportHandler(importService)
+
 	// Register routes
 	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("Hello, From  AllU")
 	})
 
 	routes.Register(app, &routes.Handlers{
-		Auth: authHandler,
-		User: userHandler},
-	)
+		Auth:   authHandler,
+		User:   userHandler,
+		Course: courseHandler,
+		Enroll: enrollHandler,
+		Grade:  gradeHandler,
+		Import: importHandler,
+	})
 
 	// Graceful shutdown
 	signChan := make(chan os.Signal, 1)
