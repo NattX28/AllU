@@ -17,7 +17,7 @@ type User struct {
 	Email    string `gorm:"uniqueIndex;not null"`
 	Password string `gorm:"not null"`
 	Role     Role   `gorm:"type:varchar(10);not null"`
-	Address  string `gorm:"not null"`
+	Address  string `gorm:"default:null"`
 	Birthday time.Time
 	Gender   string `gorm:"type:varchar(10)"`
 

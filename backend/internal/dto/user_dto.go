@@ -17,25 +17,27 @@ type GetMeResponse struct {
 }
 
 type StudentDetail struct {
-	StudentID   string                   `json:"student_id"`
-	EntryYear   int                      `json:"entry_year"`
-	Year        int                      `json:"year"`
-	Faculty     string                   `json:"faculty"`
-	Major       string                   `json:"major"`
-	GPAX        float64                  `json:"gpax"`
-	Enrollments []EnrolledCourseResponse `json:"enrollments"`
+	StudentID string  `json:"student_id"`
+	EntryYear int     `json:"entry_year"`
+	Year      int     `json:"year"`
+	Address   string  `json:"address"`
+	Birthday  string  `json:"birthday"`
+	Gender    string  `json:"gender"`
+	Faculty   string  `json:"faculty"`
+	Major     string  `json:"major"`
+	GPAX      float64 `json:"gpax"`
 }
 
 type EnrolledCourseResponse struct {
-	EnrollmentID string `json:"enrollment_id"`
-	CourseID     string `json:"course_id"` // ex. CPE101
-	CourseName   string `json:"course_name"`
-	SectionNum   int    `json:"section_num"`
-	Status       string `json:"status"` // enrolled, dropped, graded
-	StudyTime    string `json:"study_time"`
+	EnrollmentID string    `json:"enrollment_id"`
+	CourseID     string    `json:"course_id"` // ex. CPE101
+	CourseName   string    `json:"course_name"`
+	SectionNum   int       `json:"section_num"`
+	Status       string    `json:"status"` // enrolled, dropped, graded
+	StudyTime    string    `json:"study_time"`
 	Deadline     time.Time `json:"deadline"`
-	Semester     int    `json:"semester"`
-	AcademicYear int    `json:"academic_year"`
+	Semester     int       `json:"semester"`
+	AcademicYear int       `json:"academic_year"`
 
 	FinalScore      *float64 `json:"final_score,omitempty"`
 	MidtermScore    *float64 `json:"midterm_score,omitempty"`
@@ -49,6 +51,9 @@ type ProfessorDetail struct {
 	ProfessorID string `json:"professor_id"`
 	Faculty     string `json:"faculty"`
 	Department  string `json:"department"`
+	Address     string `json:"address"`
+	Birthday    string `json:"birthday"`
+	Gender      string `json:"gender"`
 }
 
 type UpdateMeRequest struct {

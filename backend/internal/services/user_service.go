@@ -23,7 +23,7 @@ func NewUserService(db *gorm.DB) *UserService {
 
 func (s *UserService) GetMe(userId uuid.UUID) (*dto.GetMeResponse, error) {
 	var user models.User
-	if err := s.db.Preload("Student.Enrollments.Section.Course").Preload("Professor").Where("id = ?", userId).First(&user).Error; err != nil {
+	if err := s.db.Preload("Student").Preload("Professor").Where("id = ?", userId).First(&user).Error; err != nil {
 		return nil, err
 	}
 
@@ -42,33 +42,17 @@ func (s *UserService) mapToGetMeResponse(user *models.User) *dto.GetMeResponse {
 	switch user.Role {
 	case models.RoleStudent:
 		if user.Student != nil {
-			var enrolledCourses []dto.EnrolledCourseResponse
-
-			for _, en := range user.Student.Enrollments {
-				enrolledCourses = append(enrolledCourses, dto.EnrolledCourseResponse{
-					EnrollmentID: en.ID.String(),
-					CourseID:     en.Section.CourseID,
-					CourseName:   en.Section.Course.NameEn,
-					SectionNum:   en.Section.SectionNum,
-					Status:       string(en.Status),
-					StudyTime:    en.Section.StudyTime,
-					Deadline:     en.Section.Deadline,
-					Semester:     en.Semester,
-					AcademicYear: en.AcademicYear,
-					Grade:        en.LetterGrade,
-					MidtermScore: en.MidtermScore,
-					FinalScore:   en.FinalScore,
-				})
-			}
 
 			res.Student = &dto.StudentDetail{
-				StudentID:   user.Student.StudentID,
-				EntryYear:   user.Student.EntryYear,
-				Year:        user.Student.Year,
-				Faculty:     user.Student.Faculty,
-				Major:       user.Student.Major,
-				GPAX:        user.Student.GPAX,
-				Enrollments: enrolledCourses,
+				StudentID: user.Student.StudentID,
+				EntryYear: user.Student.EntryYear,
+				Address:   user.Address,
+				Birthday:  user.Birthday.Format("2006-01-02"),
+				Gender:    user.Gender,
+				Year:      user.Student.Year,
+				Faculty:   user.Student.Faculty,
+				Major:     user.Student.Major,
+				GPAX:      user.Student.GPAX,
 			}
 		}
 	case models.RoleProfessor:
@@ -77,6 +61,9 @@ func (s *UserService) mapToGetMeResponse(user *models.User) *dto.GetMeResponse {
 				ProfessorID: user.Professor.ProfessorID,
 				Faculty:     user.Professor.Faculty,
 				Department:  user.Professor.Department,
+				Address:     user.Address,
+				Birthday:    user.Birthday.Format("2006-01-02"),
+				Gender:      user.Gender,
 			}
 		}
 	}
