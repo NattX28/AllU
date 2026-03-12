@@ -97,6 +97,15 @@ func (s *GradeService) SubmitGrades(profID uuid.UUID, req dto.SubmitGradeRequest
 			if err := tx.Save(&en).Error; err != nil {
 				return err
 			}
+
+			// update GPAX after each enrollment is saved
+			for _, item := range req.Grades {
+				if item.Grade != "" {
+					if err := s.UpdateGPAXLogic(tx, en.StudentID); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		return nil
 	})
@@ -209,4 +218,34 @@ func (s *GradeService) ConvertGradeToWeight(grade string) float64 {
 		"F":  0.0,
 	}
 	return weights[grade]
+}
+
+func (s *GradeService) UpdateGPAXLogic(tx *gorm.DB, studentID uuid.UUID) error {
+	var enrolls []models.Enrollment
+
+	// retrieve enrollments that 'graded'
+	err := tx.Preload("Section.Course").Where("student_id = ? AND status = ?", studentID, "graded").Find(&enrolls).Error
+	if err != nil {
+		return err
+	}
+
+	var totalQualityPoints float64
+	var totalCreditsForGPAX int
+
+	for _, en := range enrolls {
+		if en.LetterGrade != "" && en.LetterGrade != "W" && en.LetterGrade != "I" {
+			weight := s.ConvertGradeToWeight(en.LetterGrade)
+			totalQualityPoints += weight * float64(en.Section.Course.Credits)
+			totalCreditsForGPAX += en.Section.Course.Credits
+		}
+	}
+
+	// Calculate GPAX
+	var gpax float64
+	if totalCreditsForGPAX > 0 {
+		gpax = totalQualityPoints / float64(totalCreditsForGPAX)
+	}
+
+	return tx.Model(&models.Student{}).Where("id = ?", studentID).Update("gpax", gpax).Error
+
 }
