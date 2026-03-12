@@ -77,7 +77,7 @@ func (h *CourseHandler) UpdateCourse(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "course" + *req.NameEn + "updated successfully",
+		"message": "course " + id + " updated successfully",
 	})
 }
 

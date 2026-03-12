@@ -85,7 +85,7 @@ func (h *UserHandler) CreateUser(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "user created successfully (wait to activate)"})
 }
 
-func (h *UserHandler) GetUserByID(c fiber.Ctx) error {
+func (h *UserHandler) UpdateUser(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	targetID, err := uuid.Parse(idParam)
 	if err != nil {
