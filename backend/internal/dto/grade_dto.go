@@ -22,10 +22,19 @@ type StudentGradeItem struct {
 	FinalScore      *float64  `json:"final_score"      validate:"omitempty,min=0,max=100"`
 	TotalScore      float64   `json:"total_score"      validate:"min=0,max=100"`
 	Grade           string    `json:"grade"            validate:"omitempty,oneof=A B+ B C+ C D+ D F I W"`
+	Status          string    `json:"status"`
 }
 
 // For entering scores
 type SubmitGradeRequest struct {
 	SectionID uuid.UUID          `json:"section_id" validate:"required"`
 	Grades    []StudentGradeItem `json:"grades" validate:"required,dive"`
+}
+
+type ClassListResponse struct {
+	SectionID    uuid.UUID          `json:"section_id"`
+	CourseID     string             `json:"course_id"`
+	SectionNum   int                `json:"section_num"`
+	TotalStudent int                `json:"total_student"`
+	Students     []StudentGradeItem `json:"students"`
 }

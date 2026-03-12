@@ -61,3 +61,29 @@ func (h *GradeHandler) SubmitGrades(c fiber.Ctx) error {
 		"message": "scores and grades submitted successfully",
 	})
 }
+
+func (h *GradeHandler) GetClassList(c fiber.Ctx) error {
+	profID, ok := c.Locals("profileID").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"message": "Unauthorized",
+		})
+	}
+
+	secID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "sectionID not provided",
+		})
+	}
+
+	res, err := h.gradeService.GetClassList(profID, secID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "can't get class list",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}

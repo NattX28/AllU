@@ -12,4 +12,6 @@ func SetupGradeRoutes(r fiber.Router, h *handler.GradeHandler) {
 	prof.Get("/sections", h.GetProfessorSections)
 
 	prof.Post("/grades", h.SubmitGrades)
+
+	prof.Get("/sections/:id/students", h.GetClassList)
 }

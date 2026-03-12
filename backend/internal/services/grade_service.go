@@ -60,7 +60,7 @@ func (s *GradeService) SubmitGrades(profID uuid.UUID, req dto.SubmitGradeRequest
 
 			// Update scores only professor sent
 			if item.AttendanceScore != nil {
-				en.AssignmentScore = item.AttendanceScore
+				en.AttendanceScore = item.AttendanceScore
 			}
 			if item.AssignmentScore != nil {
 				en.AssignmentScore = item.AssignmentScore
@@ -100,4 +100,42 @@ func (s *GradeService) SubmitGrades(profID uuid.UUID, req dto.SubmitGradeRequest
 		}
 		return nil
 	})
+}
+
+func (s *GradeService) GetClassList(profID uuid.UUID, sectionID uuid.UUID) (*dto.ClassListResponse, error) {
+	var section models.Section
+	if err := s.db.Preload("Course").Where("id =? AND professor_id = ?", sectionID, profID).First(&section); err != nil {
+		return nil, errors.New("section not found or professor does not own the section")
+	}
+
+	// retrieve student that status is 'enrolled' or 'graded' or 'dropped'
+	var enrolls []models.Enrollment
+	err := s.db.Preload("Student.User").Where("section_id = ?", sectionID).Find(&enrolls).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	studentItems := make([]dto.StudentGradeItem, 0)
+	for _, en := range enrolls {
+		studentItems = append(studentItems, dto.StudentGradeItem{
+			EnrollmentID:    en.ID,
+			StudentID:       en.Student.StudentID,
+			StudentName:     en.Student.User.Name,
+			AttendanceScore: en.AttendanceScore,
+			AssignmentScore: en.AssignmentScore,
+			MidtermScore:    en.MidtermScore,
+			FinalScore:      en.FinalScore,
+			TotalScore:      en.TotalScore,
+			Grade:           en.LetterGrade,
+			Status:          string(en.Status),
+		})
+	}
+	return &dto.ClassListResponse{
+		SectionID:    sectionID,
+		CourseID:     section.Course.ID,
+		SectionNum:   section.SectionNum,
+		TotalStudent: len(enrolls),
+		Students:     studentItems,
+	}, nil
 }
