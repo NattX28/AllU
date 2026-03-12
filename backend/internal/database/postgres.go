@@ -36,11 +36,13 @@ func ConnectDataBase() *gorm.DB {
 }
 
 func AutoMigrate(db *gorm.DB) {
-	err := db.AutoMigrate(&models.User{},
+	err := db.AutoMigrate(
+		&models.User{},
+		&models.Course{},
 		&models.Student{},
 		&models.Professor{},
+		&models.Section{},
 		&models.Enrollment{},
-		&models.Course{},
 		&models.RefreshToken{},
 	)
 	if err != nil {

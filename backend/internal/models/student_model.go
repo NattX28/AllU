@@ -15,5 +15,5 @@ type Student struct {
 
 	// Relations
 	User        User         `gorm:"foreignKey:UserID"`
-	Enrollments []Enrollment `gorm:"foreignKey:StudentID"`
+	Enrollments []Enrollment `gorm:"foreignKey:StudentID;constraint:-"`
 }
