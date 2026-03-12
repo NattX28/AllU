@@ -2,6 +2,7 @@ package seeder
 
 import (
 	"log"
+	"os"
 
 	"github.com/NattX28/AllU/internal/models"
 	"golang.org/x/crypto/bcrypt"
@@ -21,15 +22,15 @@ func seedAdmin(db *gorm.DB) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin1234"), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(os.Getenv("ADMIN_PASSWORD")), bcrypt.DefaultCost)
 	if err != nil {
 		log.Fatal("Failed to generate hashed password: ", err)
 	}
 
 	admin := models.User{
-		Name:     "Admin",
-		Username: "admin",
-		Email:    "admin@email.kmutnb.ac.th",
+		Name:     os.Getenv("ADMIN_NAME"),
+		Username: os.Getenv("ADMIN_USERNAME"),
+		Email:    os.Getenv("ADMIN_EMAIL"),
 		Password: string(hashedPassword),
 		Role:     models.RoleAdmin,
 	}
