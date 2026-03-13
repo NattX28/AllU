@@ -149,11 +149,15 @@ func (s *GradeService) GetClassList(profID uuid.UUID, sectionID uuid.UUID) (*dto
 }
 
 func (s *GradeService) GetMyGrades(studentID uuid.UUID, semester, year int) (*dto.MyGradesResponse, error) {
+	var std models.Student
+	if err := s.db.First(&std, "id = ?", studentID).Error; err != nil {
+		return nil, errors.New("student not found")
+	}
 	// Auto detect if semester and year are not provided
 	if semester == 0 || year == 0 {
 		// Get the latest semester and year
 		var lastest models.Enrollment
-		if err := s.db.Where("student_id = ?", studentID).Order("academic_year DESC, semester DESC").First(&lastest).Error; err != nil {
+		if err := s.db.Where("student_id = ?", std.StudentID).Order("academic_year DESC, semester DESC").First(&lastest).Error; err != nil {
 			return &dto.MyGradesResponse{Courses: []dto.GradeDetails{}}, nil
 		}
 		semester = lastest.Semester
@@ -162,7 +166,7 @@ func (s *GradeService) GetMyGrades(studentID uuid.UUID, semester, year int) (*dt
 
 	// Get enrollments for the student in the given semester and year
 	var enrolls []models.Enrollment
-	err := s.db.Preload("Section.Course").Where("student_id = ? AND academic_year = ? AND semester = ?", studentID, year, semester).Find(&enrolls).Error
+	err := s.db.Preload("Section.Course").Where("student_id = ? AND academic_year = ? AND semester = ?", std.StudentID, year, semester).Find(&enrolls).Error
 	if err != nil {
 		return nil, err
 	}

@@ -65,7 +65,7 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 				return fmt.Errorf("section not found: %s", sidStr)
 			}
 
-			if sec.Course.Category != "GENED_COURSE" && sec.Course.Category != "ELECTIVE_COURSE" {
+			if sec.Course.Category != models.ElectiveCourse && sec.Course.Category != models.GenEdCourse {
 				if !strings.Contains(sec.Course.NameEn, std.Major) && std.Major != "admin" {
 					return fmt.Errorf("course %s is not open for major %s", sec.Course.NameEn, std.Major)
 				}
@@ -138,7 +138,7 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 
 		// Check course that student is enrolled in
 		var currentEnrolls []models.Enrollment
-		tx.Preload("Section.Course").Where("student_id = ? AND status = ?", studentID, "enrolled").Find(&currentEnrolls)
+		tx.Preload("Section.Course").Where("student_id = ? AND status = ?", std.StudentID, "enrolled").Find(&currentEnrolls)
 
 		// Diff
 		oldMap := make(map[string]models.Enrollment)
@@ -217,8 +217,14 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 
 func (s *EnrollService) WithdrawCourse(studentID uuid.UUID, sectionID uuid.UUID) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		var std models.Student
+		if err := tx.First(&std, "id = ?", studentID).Error; err != nil {
+			return errors.New("student not found")
+		}
+
 		var en models.Enrollment
-		err := tx.Preload("Section").Where("student_id = ? AND section_id = ? AND status = ?", studentID, sectionID, "enrolled").First(&en).Error
+		err := tx.Preload("Section").Where("student_id = ? AND section_id = ? AND status = ?",
+			std.StudentID, sectionID, "enrolled").First(&en).Error
 		if err != nil {
 			return errors.New("No enrollment found that can be withdrawn")
 		}
