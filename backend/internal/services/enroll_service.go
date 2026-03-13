@@ -154,7 +154,7 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 		var totalCredits int
 		for _, sidStr := range newSids {
 			var sec models.Section
-			if err := tx.Preload("Course").First(&sec, "id = ?", sidStr); err != nil {
+			if err := tx.Preload("Course").First(&sec, "id = ?", sidStr).Error; err != nil {
 				return fmt.Errorf("section %s not found", sidStr)
 			}
 
