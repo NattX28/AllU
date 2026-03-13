@@ -263,13 +263,23 @@ func (s *EnrollService) GetMyEnrollments(studentID uuid.UUID, mode string) ([]dt
 	var res []dto.EnrolledCourseResponse
 	for _, enroll := range enrolls {
 		res = append(res, dto.EnrolledCourseResponse{
-			EnrollmentID: enroll.ID.String(),
-			CourseID:     enroll.Section.Course.ID,
-			CourseName:   enroll.Section.Course.NameEn,
-			SectionNum:   enroll.Section.SectionNum,
-			Semester:     enroll.Semester,
-			AcademicYear: enroll.AcademicYear,
+			EnrollmentID:    enroll.ID.String(),
+			CourseID:        enroll.Section.Course.ID,
+			CourseName:      enroll.Section.Course.NameEn,
+			SectionNum:      enroll.Section.SectionNum,
+			Status:          string(enroll.Status),
+			StudyTime:       enroll.Section.StudyTime,
+			Deadline:        enroll.Section.Deadline,
+			Semester:        enroll.Semester,
+			AcademicYear:    enroll.AcademicYear,
+			AttendanceScore: enroll.AttendanceScore,
+			AssignmentScore: enroll.AssignmentScore,
+			MidtermScore:    enroll.MidtermScore,
+			FinalScore:      enroll.FinalScore,
+			TotalScore:      enroll.TotalScore,
+			Grade:           enroll.LetterGrade,
 		})
 	}
+
 	return res, nil
 }
