@@ -238,9 +238,13 @@ func (s *EnrollService) WithdrawCourse(studentID uuid.UUID, sectionID uuid.UUID)
 }
 
 func (s *EnrollService) GetMyEnrollments(studentID uuid.UUID, mode string) ([]dto.EnrolledCourseResponse, error) {
-	var enrolls []models.Enrollment
+	var std models.Student
+	if err := s.db.First(&std, "id = ?", studentID).Error; err != nil {
+		return nil, errors.New("student not found")
+	}
 
-	query := s.db.Preload("Section.Course").Where("student_id = ?", studentID)
+	var enrolls []models.Enrollment
+	query := s.db.Preload("Section.Course").Where("student_id = ?", std.StudentID)
 
 	// cases for UI
 	switch mode {
