@@ -66,7 +66,7 @@ export default function LoginPage() {
             จัดการการศึกษา
           </h2>
           <p className="text-white/70 text-[15px] leading-relaxed">
-            Chiang Mai University
+            King Mongkut's University of Technology North Bangkok
             <br />
             Academic Management System
           </p>
