@@ -171,9 +171,10 @@ func (s *UserService) GetAllUsers(filter dto.UserFilterQuery) (*dto.UserListResp
 		}
 		// Filter with course ID
 		if filter.CourseID != "" {
-			query = query.Joins("LEFT JOIN enrollments ON enrollments.student_id = students.id").
-				Joins("LEFT JOIN courses ON courses.professor_id = professors.id").
-				Where("(enrollments.course_id = ? OR courses.course_id = ?)", filter.CourseID, filter.CourseID)
+			query = query.Joins("LEFT JOIN enrollments ON enrollments.student_id = students.student_id").
+				Joins("LEFT JOIN sections ON sections.id = enrollments.section_id").
+				Joins("LEFT JOIN courses ON courses.id = sections.course_id").
+				Where("courses.course_id = ?", filter.CourseID)
 		}
 	}
 
@@ -357,6 +358,10 @@ func (s *UserService) UpdateAdminUser(targetId uuid.UUID, req dto.UpdateUserAdmi
 			if req.GPAX != nil {
 				user.Student.GPAX = *req.GPAX
 			}
+
+			if err := tx.Save(&user.Student).Error; err != nil {
+				return err
+			}
 		} else if user.Role == models.RoleProfessor {
 			if req.ProfessorID != nil {
 				user.Professor.ProfessorID = *req.ProfessorID
@@ -366,6 +371,10 @@ func (s *UserService) UpdateAdminUser(targetId uuid.UUID, req dto.UpdateUserAdmi
 			}
 			if req.Department != nil {
 				user.Professor.Department = *req.Department
+			}
+
+			if err := tx.Save(&user.Professor).Error; err != nil {
+				return err
 			}
 		}
 
