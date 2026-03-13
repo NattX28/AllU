@@ -62,38 +62,45 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.AuthResponse, error) {
 }
 
 func (s *AuthService) Logout(refreshToken string) error {
-	var token models.RefreshToken
-	if err := s.db.Where("token = ? AND revoked = ?", refreshToken, false).First(&token).Error; err != nil {
-		return models.ErrInvalidRefreshToken
-	}
+	result := s.db.Model(&models.RefreshToken{}).
+		Where("token = ? AND revoked = ?", refreshToken, false).
+		Update("revoked", true)
 
-	// Revoke token
-	if err := s.db.Model(&token).Update("revoked", true).Error; err != nil {
-		return err
+	if result.Error != nil {
+		return result.Error
 	}
 
 	return nil
 }
 
-func (s *AuthService) Refresh(refreshToken string) (string, error) {
+func (s *AuthService) Refresh(oldRefreshToken string) (string, string, error) {
 	// Find token in db
 	var token models.RefreshToken
-	if err := s.db.Preload("User").Where("token = ? AND revoked = ?", refreshToken, false).First(&token).Error; err != nil {
-		return "", models.ErrInvalidRefreshToken
+	if err := s.db.Preload("User").Where("token = ? AND revoked = ?", oldRefreshToken, false).First(&token).Error; err != nil {
+		return "", "", models.ErrInvalidRefreshToken
 	}
 
 	// Verify token
 	if time.Now().After(token.ExpiresAt) {
-		return "", models.ErrInvalidRefreshToken
+		return "", "", models.ErrInvalidRefreshToken
 	}
+
+	// Revoke old token
+	token.Revoked = true
+	s.db.Save(&token)
 
 	// Generate new access token
-	accessToken, err := s.generateAccessToken(&token.User)
-	if err != nil {
-		return "", err
-	}
+	newAccessToken, _ := s.generateAccessToken(&token.User)
+	newRefreshToken, _ := s.generateRefreshToken(&token.User)
 
-	return accessToken, nil
+	s.db.Create(&models.RefreshToken{
+		Token:     newRefreshToken,
+		UserID:    token.UserID,
+		ExpiresAt: time.Now().Add(time.Hour * 24 * 7),
+		Revoked:   false,
+	})
+
+	return newAccessToken, newRefreshToken, nil
 }
 
 func (s *AuthService) generateAccessToken(user *models.User) (string, error) {
@@ -132,6 +139,7 @@ func (s *AuthService) generateRefreshToken(user *models.User) (string, error) {
 		Token:     tokenStr,
 		UserID:    user.ID,
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+		Revoked:   false,
 	}
 
 	if err := s.db.Create(&refreshToken).Error; err != nil {

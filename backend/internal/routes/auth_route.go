@@ -11,5 +11,5 @@ func SetupAuthRoutes(r fiber.Router, h *handler.AuthHandler) {
 
 	auth.Post("/login", h.Login)
 	auth.Post("/logout", middleware.AuthMiddleware, h.Logout)
-	auth.Post("/refresh", middleware.AuthMiddleware, h.Refresh)
+	auth.Post("/refresh", h.Refresh)
 }
