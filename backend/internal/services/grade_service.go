@@ -99,11 +99,10 @@ func (s *GradeService) SubmitGrades(profID uuid.UUID, req dto.SubmitGradeRequest
 			}
 
 			// update GPAX after each enrollment is saved
-			for _, item := range req.Grades {
-				if item.Grade != "" {
-					if err := s.UpdateGPAXLogic(tx, en.StudentID); err != nil {
-						return err
-					}
+
+			if item.Grade != "" {
+				if err := s.UpdateGPAXLogic(tx, en.StudentID); err != nil {
+					return err
 				}
 			}
 		}
@@ -113,7 +112,7 @@ func (s *GradeService) SubmitGrades(profID uuid.UUID, req dto.SubmitGradeRequest
 
 func (s *GradeService) GetClassList(profID uuid.UUID, sectionID uuid.UUID) (*dto.ClassListResponse, error) {
 	var section models.Section
-	if err := s.db.Preload("Course").Where("id =? AND professor_id = ?", sectionID, profID).First(&section); err != nil {
+	if err := s.db.Preload("Course").Where("id =? AND professor_id = ?", sectionID, profID).First(&section).Error; err != nil {
 		return nil, errors.New("section not found or professor does not own the section")
 	}
 
