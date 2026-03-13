@@ -13,8 +13,8 @@ const (
 
 type Enrollment struct {
 	Base
-	StudentID uuid.UUID        `gorm:"type:uuid;not null;uniqueIndex:idx_std_sec"`
-	SectionID uuid.UUID        `gorm:"type:uuid;not null;uniqueIndex:idx_std_sec"`
+	StudentID string           `gorm:"not null;uniqueIndex:idx_std_sec"`
+	SectionID uuid.UUID        `gorm:"not null;uniqueIndex:idx_std_sec"`
 	Status    EnrollmentStatus `gorm:"type:varchar(20);default:'enrolled'"`
 
 	// Sub Score
@@ -34,6 +34,6 @@ type Enrollment struct {
 	AcademicYear int `gorm:"not null"`
 
 	// Relations
-	Student Student `gorm:"foreignKey:StudentID"`
-	Section Section `gorm:"foreignKey:SectionID"`
+	Student Student `gorm:"foreignKey:StudentID;references:StudentID;constraint:-"`
+	Section Section `gorm:"foreignKey:SectionID;references:ID;constraint:-"`
 }

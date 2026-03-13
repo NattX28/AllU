@@ -24,5 +24,5 @@ type Course struct {
 	Prerequisites     []Course `gorm:"many2many:course_prerequisites;foreignkey:ID;joinForeignKey:CourseID;References:ID;joinReferences:PrerequisiteID"`
 	IsPrerequisiteFor []Course `gorm:"many2many:course_prerequisites;foreignKey:ID;joinForeignKey:PrerequisiteID;References:ID;joinReferences:CourseID"`
 
-	Sections []Section `gorm:"foreignKey:CourseID"`
+	Sections []Section `gorm:"foreignKey:CourseID;constraint:-"`
 }

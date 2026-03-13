@@ -94,7 +94,7 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 			tx.First(&sec, "id = ?", sid)
 
 			newEnroll := models.Enrollment{
-				StudentID:    studentID,
+				StudentID:    std.StudentID,
 				SectionID:    sid,
 				Status:       "enrolled",
 				Semester:     sec.Semester,
@@ -201,7 +201,7 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 				var sec models.Section
 				tx.First(&sec, "id = ?", sid)
 				tx.Create(&models.Enrollment{
-					StudentID:    std.ID,
+					StudentID:    std.StudentID,
 					SectionID:    sid,
 					Status:       "enrolled",
 					Semester:     sec.Semester,

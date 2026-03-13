@@ -220,7 +220,7 @@ func (s *GradeService) ConvertGradeToWeight(grade string) float64 {
 	return weights[grade]
 }
 
-func (s *GradeService) UpdateGPAXLogic(tx *gorm.DB, studentID uuid.UUID) error {
+func (s *GradeService) UpdateGPAXLogic(tx *gorm.DB, studentID string) error {
 	var enrolls []models.Enrollment
 
 	// retrieve enrollments that 'graded'
@@ -246,6 +246,6 @@ func (s *GradeService) UpdateGPAXLogic(tx *gorm.DB, studentID uuid.UUID) error {
 		gpax = totalQualityPoints / float64(totalCreditsForGPAX)
 	}
 
-	return tx.Model(&models.Student{}).Where("id = ?", studentID).Update("gpax", gpax).Error
+	return tx.Model(&models.Student{}).Where("student_id = ?", studentID).Update("gpax", gpax).Error
 
 }

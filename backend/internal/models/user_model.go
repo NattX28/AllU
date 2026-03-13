@@ -25,6 +25,6 @@ type User struct {
 	MustChangePassword bool `gorm:"default:true"`
 
 	// Relations
-	Student   *Student   `gorm:"foreignKey:UserID"`
-	Professor *Professor `gorm:"foreignKey:UserID"`
+	Student   *Student   `gorm:"foreignKey:UserID;constraint:-"`
+	Professor *Professor `gorm:"foreignKey:UserID;constraint:-"`
 }

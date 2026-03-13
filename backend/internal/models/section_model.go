@@ -20,6 +20,6 @@ type Section struct {
 
 	ProfessorID uuid.UUID `gorm:"type:uuid;not null"`
 
-	Course    Course    `gorm:"foreignKey:CourseID"`
-	Professor Professor `gorm:"foreignKey:ProfessorID"`
+	Course    Course    `gorm:"foreignKey:CourseID;constraint:-"`
+	Professor Professor `gorm:"foreignKey:ProfessorID;constraint:-"`
 }
