@@ -10,6 +10,7 @@ import (
 type GetMeResponse struct {
 	UserID   uuid.UUID   `json:"id"`
 	Username string      `json:"username"`
+	Name     string      `json:"name"`
 	Role     models.Role `json:"role"`
 
 	Student   *StudentDetail   `json:"student,omitempty"`

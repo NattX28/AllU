@@ -10,5 +10,5 @@ type Professor struct {
 	Department  string    `gorm:"not null"`
 	// Relations
 	User     User      `gorm:"foreignKey:UserID"`
-	Sections []Section `gorm:"foreignKey:ProfessorID;references:ID;constraint:-"`
+	Sections []Section `gorm:"foreignKey:ProfessorID;constraint:-"`
 }

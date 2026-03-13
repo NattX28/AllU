@@ -34,6 +34,7 @@ func (s *UserService) mapToGetMeResponse(user *models.User) *dto.GetMeResponse {
 	res := &dto.GetMeResponse{
 		UserID:   user.ID,
 		Username: user.Username,
+		Name:     user.Name,
 		Role:     user.Role,
 	}
 
@@ -124,7 +125,7 @@ func (s *UserService) GetAllUsers(filter dto.UserFilterQuery) (*dto.UserListResp
 	var total int64
 
 	// Base query
-	query := s.db.Model(&models.User{}).Distinct("users.*")
+	query := s.db.Model(&models.User{})
 
 	// Filter basic data (Gender / Role)
 	if filter.Gender != "" {

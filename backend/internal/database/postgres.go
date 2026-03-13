@@ -11,7 +11,7 @@ import (
 )
 
 func ConnectDataBase() *gorm.DB {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=require&default_query_exec_mode=describe_exec",
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=require",
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_HOST"),
@@ -31,7 +31,7 @@ func ConnectDataBase() *gorm.DB {
 
 	log.Printf("Connected to database: %s successfully", os.Getenv("DB_NAME"))
 
-	// AutoMigrate(db)
+	AutoMigrate(db)
 	return db
 }
 
