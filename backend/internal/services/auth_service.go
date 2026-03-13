@@ -33,7 +33,7 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.AuthResponse, error) {
 	}
 
 	var user models.User
-	if err := s.db.Where("username = ?", req.Username).First(&user).Error; err != nil {
+	if err := s.db.Preload("Student").Preload("Professor").Where("username = ?", req.Username).First(&user).Error; err != nil {
 		return nil, models.ErrUsernameNotFound
 	}
 
