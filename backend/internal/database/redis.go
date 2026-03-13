@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"log"
 	"os"
 
 	"github.com/redis/go-redis/v9"
@@ -22,6 +23,8 @@ func ConnnectRedis() *redis.Client {
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		panic("Redis connection failed: " + err.Error())
 	}
+
+	log.Println("Connected to Redis")
 
 	return rdb
 }

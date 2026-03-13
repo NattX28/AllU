@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -30,6 +31,11 @@ func Start(db *gorm.DB, rdb *redis.Client) {
 			validator: validator.New(),
 		},
 	})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "5000"
+	}
 
 	// Initialize
 	// Auth
@@ -92,5 +98,7 @@ func Start(db *gorm.DB, rdb *redis.Client) {
 		_ = app.Shutdown()
 	}()
 
-	log.Fatal(app.Listen(":5000"))
+	// Start server with message that tells the user the server is running
+	log.Printf("Server is running on port :%s", port)
+	log.Fatal(app.Listen(fmt.Sprintf(":%s", port)))
 }
