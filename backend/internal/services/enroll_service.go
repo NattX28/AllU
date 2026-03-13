@@ -53,7 +53,7 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// Check by major
 		var std models.Student
-		if err := tx.First(&std, "student_id = ?", studentID).Error; err != nil {
+		if err := tx.First(&std, "id = ?", studentID).Error; err != nil {
 			return errors.New("not found student")
 		}
 

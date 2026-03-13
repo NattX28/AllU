@@ -74,8 +74,7 @@ func (h *EnrollHandler) UpdateSchedule(c fiber.Ctx) error {
 			"error": "failed to parse request body",
 		})
 	}
-	err := h.enrollService.UpdateEnrollment(studentID, req.SectionIDs)
-	if err != nil {
+	if err := h.enrollService.UpdateEnrollment(studentID, req.SectionIDs); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": "failed to update enroll",
 			"error":   err.Error(),
