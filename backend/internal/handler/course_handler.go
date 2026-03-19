@@ -1,0 +1,180 @@
+package handler
+
+import (
+	"fmt"
+
+	"github.com/NattX28/AllU/internal/dto"
+	"github.com/NattX28/AllU/internal/services"
+	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
+)
+
+type CourseHandler struct {
+	courseService *services.CourseService
+}
+
+func NewCourseHandler(courseService *services.CourseService) *CourseHandler {
+	return &CourseHandler{courseService: courseService}
+}
+
+func (h *CourseHandler) CreateCourse(c fiber.Ctx) error {
+	var req dto.CreateCourseRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.courseService.CreateCourse(req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to create course",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "course[" + req.ID + "] created successfully",
+	})
+}
+
+func (h *CourseHandler) CreateSection(c fiber.Ctx) error {
+	var req dto.CreateSectionRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.courseService.CreateSection(req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to create section",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "section" + fmt.Sprint(req.SectionNum) + "created successfully",
+	})
+}
+
+func (h *CourseHandler) UpdateCourse(c fiber.Ctx) error {
+	id := c.Params("id")
+	var req dto.UpdateCourseRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.courseService.UpdateCourse(id, req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to update course",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "course " + id + " updated successfully",
+	})
+}
+
+func (h *CourseHandler) DeleteCourse(c fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid course id",
+		})
+	}
+
+	if err := h.courseService.DeleteCourse(id); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to delete course",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "deleted" + id + "successfully",
+	})
+}
+
+func (h *CourseHandler) UpdateSection(c fiber.Ctx) error {
+	id := c.Params("id")
+	sectionID, err := uuid.Parse(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid section id",
+			"error":   err.Error(),
+		})
+	}
+
+	var req dto.UpdateSectionRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid request",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.courseService.UpdateSection(sectionID, req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to update section",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "section updated successfully",
+	})
+}
+
+func (h *CourseHandler) DeleteSection(c fiber.Ctx) error {
+	id := c.Params("id")
+	sectionID, err := uuid.Parse(id)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid section id",
+			"error":   err.Error(),
+		})
+	}
+
+	if err := h.courseService.DeleteSection(sectionID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to delete section",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "section deleted successfully",
+	})
+}
+
+func (h *CourseHandler) GetAllCourses(c fiber.Ctx) error {
+	res, err := h.courseService.GetAllCourses()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to get courses",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}
+
+func (h *CourseHandler) GetCourseByID(c fiber.Ctx) error {
+	id := c.Params("id") // ex. CPE101
+
+	res, err := h.courseService.GetCourseByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "failed to get course",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}
