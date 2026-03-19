@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
@@ -18,6 +19,28 @@ type UserService struct {
 
 func NewUserService(db *gorm.DB) *UserService {
 	return &UserService{db: db}
+}
+
+// normalizeYear converts any year input to Christian Era (4-digit)
+// Accepts: 66, 67 (short BE), 2566, 2567 (full BE), 2023, 2024 (CE)
+// Returns 0 if input is 0 or invalid
+func normalizeYear(year int) int {
+	if year <= 0 {
+		return 0
+	}
+
+	// Short form — assume BE since system is Thai
+	if year < 100 {
+		return year + 2500 - 543
+	}
+
+	// If greater than current CE year, must be BE → convert
+	if year > time.Now().Year() {
+		return year - 543
+	}
+
+	// Otherwise already CE
+	return year
 }
 
 func (s *UserService) GetMe(userId uuid.UUID) (*dto.GetMeResponse, error) {
@@ -124,22 +147,49 @@ func (s *UserService) GetAllUsers(filter dto.UserFilterQuery) (*dto.UserListResp
 	var users []models.User
 	var total int64
 
-	// Base query
-	query := s.db.Model(&models.User{})
+	// Always JOIN first so all WHERE clauses can reference students/professors columns
+	query := s.db.Model(&models.User{}).
+		Joins("LEFT JOIN students ON students.user_id = users.id").
+		Joins("LEFT JOIN professors ON professors.user_id = users.id")
 
-	// Filter basic data (Gender / Role)
+	// Exact match — gender and role are enums, partial match makes no sense
 	if filter.Gender != "" {
 		query = query.Where("users.gender = ?", filter.Gender)
 	}
 	if filter.Role != "" {
 		query = query.Where("users.role = ?", filter.Role)
 	}
+
+	// Partial, case-insensitive search (split with comma)
 	if filter.Search != "" {
-		searchTerm := "%" + filter.Search + "%"
-		query = query.Where("(users.name Like ? OR users.email Like ?)", searchTerm, searchTerm)
+		terms := strings.Split(filter.Search, ",")
+		orGroup := s.db.Where("1=0")
+		for _, t := range terms {
+			t = strings.TrimSpace(t)
+			if t == "" {
+				continue
+			}
+			term := "%" + t + "%"
+			orGroup = orGroup.Or(
+				s.db.Where(
+					`(users.name ILIKE ?
+                OR users.email ILIKE ?
+                OR users.username ILIKE ?
+                OR users.address ILIKE ?
+                OR students.student_id ILIKE ?
+                OR students.faculty ILIKE ?
+                OR students.major ILIKE ?
+                OR professors.professor_id ILIKE ?
+                OR professors.faculty ILIKE ?
+                OR professors.department ILIKE ?)`,
+					term, term, term, term, term, term, term, term, term, term,
+				),
+			)
+		}
+		query = query.Where(orGroup)
 	}
 
-	// Filter with date range
+	// Inclusive date range filter on created_at
 	if filter.StartDate != "" {
 		query = query.Where("users.created_at >= ?", filter.StartDate+" 00:00:00")
 	}
@@ -147,44 +197,50 @@ func (s *UserService) GetAllUsers(filter dto.UserFilterQuery) (*dto.UserListResp
 		query = query.Where("users.created_at <= ?", filter.EndDate+" 23:59:59")
 	}
 
-	query = query.Joins("LEFT JOIN students ON students.user_id = users.id").Joins("LEFT JOIN professors ON professors.user_id = users.id")
-
-	// Cross table filter
-	// (Faculty / Major / Year / EntryYear)
-	if filter.Faculty != "" || filter.Major != "" || filter.Year > 0 || filter.EntryYear > 0 || filter.CourseID != "" || filter.MinGPAX > 0 || filter.MaxGPAX > 0 {
-		if filter.Faculty != "" {
-			query = query.Where("(students.faculty = ? OR professors.faculty = ?)", filter.Faculty, filter.Faculty)
-		}
-		if filter.Major != "" {
-			query = query.Where("students.major = ? OR professors.department = ?", filter.Major, filter.Major)
-		}
-		if filter.MinGPAX > 0 {
-			query = query.Where("students.gpax >= ?", filter.MinGPAX)
-		}
-		if filter.MaxGPAX > 0 {
-			query = query.Where("students.gpax <= ? AND users.role = ?", filter.MaxGPAX, models.RoleStudent)
-		}
-		if filter.Year > 0 {
-			query = query.Where("students.year = ?", filter.Year)
-		}
-		if filter.EntryYear > 0 {
-			query = query.Where("students.entry_year = ?", filter.EntryYear)
-		}
-		// Filter with course ID
-		if filter.CourseID != "" {
-			query = query.Joins("LEFT JOIN enrollments ON enrollments.student_id = students.student_id").
-				Joins("LEFT JOIN sections ON sections.id = enrollments.section_id").
-				Joins("LEFT JOIN courses ON courses.id = sections.course_id").
-				Where("courses.course_id = ?", filter.CourseID)
-		}
+	// ILIKE so users can type partial faculty/major without needing exact spelling
+	if filter.Faculty != "" {
+		term := "%" + filter.Faculty + "%"
+		query = query.Where("(students.faculty ILIKE ? OR professors.faculty ILIKE ?)", term, term)
+	}
+	if filter.Major != "" {
+		term := "%" + filter.Major + "%"
+		// professors use "department" as the equivalent of student "major"
+		query = query.Where("(students.major ILIKE ? OR professors.department ILIKE ?)", term, term)
 	}
 
-	// Count total users before pagination
+	// Numeric range — exact comparison is correct here
+	if filter.MinGPAX > 0 {
+		query = query.Where("students.gpax >= ?", filter.MinGPAX)
+	}
+	if filter.MaxGPAX > 0 {
+		query = query.Where("students.gpax <= ?", filter.MaxGPAX)
+	}
+	if filter.Year > 0 {
+		query = query.Where("students.year = ?", filter.Year)
+	}
+	// Normalize before querying so 66 / 2566 / 2023 all match correctly
+	if filter.EntryYear > 0 {
+		query = query.Where("students.entry_year = ?", normalizeYear(filter.EntryYear))
+	}
+
+	// Extra JOINs only when filtering by course to avoid unnecessary table scans
+	if filter.CourseID != "" {
+		query = query.
+			Joins("LEFT JOIN enrollments ON enrollments.student_id = students.student_id").
+			Joins("LEFT JOIN sections ON sections.id = enrollments.section_id").
+			Joins("LEFT JOIN courses ON courses.id = sections.course_id").
+			Where("courses.course_id ILIKE ?", "%"+filter.CourseID+"%")
+	}
+
+	// GROUP BY to collapse duplicate rows caused by one-to-many JOINs
+	query = query.Group("users.id")
+
+	// Count total matching rows before applying pagination
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err
 	}
 
-	// Dynamic Sort
+	// Dynamic sort column — default to created_at DESC
 	sortCol := "users.created_at"
 	switch filter.SortBy {
 	case "name":
@@ -196,22 +252,29 @@ func (s *UserService) GetAllUsers(filter dto.UserFilterQuery) (*dto.UserListResp
 	case "role":
 		sortCol = "users.role"
 	}
-
 	sortOrd := "DESC"
 	if strings.ToUpper(filter.Order) == "ASC" {
 		sortOrd = "ASC"
 	}
 	query = query.Order(fmt.Sprintf("%s %s", sortCol, sortOrd))
 
-	// Pagination
+	// Pagination — default limit 10, page must be at least 1
 	limit := filter.Limit
 	if limit <= 0 {
 		limit = 10
 	}
-	offset := (filter.Page - 1) * limit
+	page := filter.Page
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
 
-	err := query.Preload("Student").Preload("Professor").Limit(limit).Offset(offset).Find(&users).Error
-
+	err := query.
+		Preload("Student").
+		Preload("Professor").
+		Limit(limit).
+		Offset(offset).
+		Find(&users).Error
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +334,7 @@ func (s *UserService) CreateUser(req dto.CreateUserRequest) error {
 			studentProfile := models.Student{
 				UserID:    newUser.ID,
 				StudentID: req.StudentID,
-				EntryYear: req.EntryYear,
+				EntryYear: normalizeYear(req.EntryYear), // normalize before saving to DB
 				Year:      req.Year,
 				Faculty:   req.Faculty,
 				Major:     req.Major,
@@ -345,7 +408,7 @@ func (s *UserService) UpdateAdminUser(targetId uuid.UUID, req dto.UpdateUserAdmi
 				user.Student.StudentID = *req.StudentID
 			}
 			if req.EntryYear != nil {
-				user.Student.EntryYear = *req.EntryYear
+				user.Student.EntryYear = normalizeYear(*req.EntryYear) // normalize before saving to DB
 			}
 			if req.Year != nil {
 				user.Student.Year = *req.Year

@@ -1,34 +1,34 @@
-"use client"
+// src/app/(admin)/admin/users/page.tsx  →  URL: /admin/users
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import { userService } from "@/services/userService"
+import { useCallback, useEffect, useRef, useState } from "react";
+import { userService } from "@/services/userService";
 import type {
   GetMeResponse,
   UserFilterQuery,
   CreateUserRequest,
   UpdateUserAdminRequest,
   Role,
-} from "@/types"
-import Sidebar from "@/components/layout/Sidebar"
-import Header from "@/components/layout/Header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
+} from "@/types";
+import Sidebar from "@/components/layout/Sidebar";
+import Header from "@/components/layout/Header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   Search,
   Plus,
@@ -39,36 +39,33 @@ import {
   ChevronRight,
   Loader2,
   Users,
-} from "lucide-react"
+} from "lucide-react";
 
-const PAGE_SIZE = 20
-
+const PAGE_SIZE = 20;
 const ROLE_BADGE: Record<string, string> = {
   student: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
   professor:
     "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
-  admin:
-    "bg-[#AC3520]/10 text-[#AC3520] dark:bg-[#AC3520]/20 dark:text-[#e05540]",
-}
+  admin: "bg-[#AC3520]/10 text-[#AC3520]",
+};
 
-// ─── Create / Edit Modal ──────────────────────────────────────
 function UserModal({
   open,
   onClose,
   onSave,
   initial,
 }: {
-  open: boolean
-  onClose: () => void
+  open: boolean;
+  onClose: () => void;
   onSave: (
     data: CreateUserRequest | UpdateUserAdminRequest,
     isEdit: boolean,
-  ) => Promise<void>
-  initial?: GetMeResponse
+  ) => Promise<void>;
+  initial?: GetMeResponse;
 }) {
-  const isEdit = !!initial
-  const [saving, setSaving] = useState(false)
-  const [role, setRole] = useState<Role>(initial?.role ?? "student")
+  const isEdit = !!initial;
+  const [saving, setSaving] = useState(false);
+  const [role, setRole] = useState<Role>(initial?.role ?? "student");
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -77,76 +74,79 @@ function UserModal({
     address: initial?.student?.address ?? initial?.professor?.address ?? "",
     birthday: initial?.student?.birthday ?? initial?.professor?.birthday ?? "",
     gender: initial?.student?.gender ?? initial?.professor?.gender ?? "",
-    // Student
     student_id: initial?.student?.student_id ?? "",
-    entry_year: initial?.student?.entry_year ?? 0,
+    entry_year: initial?.student?.entry_year
+      ? initial.student.entry_year + 543
+      : 0,
     year: initial?.student?.year ?? 0,
     faculty: initial?.student?.faculty ?? initial?.professor?.faculty ?? "",
     major: initial?.student?.major ?? "",
-    // Professor
     professor_id: initial?.professor?.professor_id ?? "",
     department: initial?.professor?.department ?? "",
-  })
-
+  });
   const set = (k: string, v: string | number) =>
-    setForm((prev) => ({ ...prev, [k]: v }))
+    setForm((p) => ({ ...p, [k]: v }));
 
   const handleSave = async () => {
-    setSaving(true)
+    setSaving(true);
     try {
       if (isEdit) {
-        const req: UpdateUserAdminRequest = {
-          name: form.name || undefined,
-          address: form.address || undefined,
-          birthday: form.birthday || undefined,
-          gender: form.gender || undefined,
-          role,
-          ...(role === "student"
-            ? {
-                student_id: form.student_id || undefined,
-                entry_year: form.entry_year || undefined,
-                year: form.year || undefined,
-                faculty: form.faculty || undefined,
-                major: form.major || undefined,
-              }
-            : {
-                professor_id: form.professor_id || undefined,
-                department: form.department || undefined,
-                faculty: form.faculty || undefined,
-              }),
-        }
-        await onSave(req, true)
+        await onSave(
+          {
+            name: form.name || undefined,
+            address: form.address || undefined,
+            birthday: form.birthday || undefined,
+            gender: form.gender || undefined,
+            role,
+            ...(role === "student"
+              ? {
+                  student_id: form.student_id || undefined,
+                  entry_year: form.entry_year || undefined,
+                  year: form.year || undefined,
+                  faculty: form.faculty || undefined,
+                  major: form.major || undefined,
+                }
+              : {
+                  professor_id: form.professor_id || undefined,
+                  department: form.department || undefined,
+                  faculty: form.faculty || undefined,
+                }),
+          },
+          true,
+        );
       } else {
-        const req: CreateUserRequest = {
-          username: form.username,
-          email: form.email,
-          password: form.password,
-          name: form.name,
-          role,
-          address: form.address,
-          birthday: form.birthday,
-          gender: form.gender,
-          ...(role === "student"
-            ? {
-                student_id: form.student_id,
-                entry_year: form.entry_year,
-                year: form.year,
-                faculty: form.faculty,
-                major: form.major,
-              }
-            : {
-                professor_id: form.professor_id,
-                department: form.department,
-                faculty: form.faculty,
-              }),
-        }
-        await onSave(req, false)
+        await onSave(
+          {
+            username: form.username,
+            email: form.email,
+            password: form.password,
+            name: form.name,
+            role,
+            address: form.address,
+            birthday: form.birthday,
+            gender: form.gender,
+            ...(role === "student"
+              ? {
+                  student_id: form.student_id,
+                  entry_year: form.entry_year,
+                  year: form.year,
+                  faculty: form.faculty,
+                  major: form.major,
+                }
+              : {
+                  professor_id: form.professor_id,
+                  department: form.department,
+                  faculty: form.faculty,
+                }),
+          },
+          false,
+        );
       }
-      onClose()
+      onClose();
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const field = (label: string, key: string, type = "text") => (
     <div className="space-y-1">
@@ -160,7 +160,7 @@ function UserModal({
         }
       />
     </div>
-  )
+  );
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -170,7 +170,6 @@ function UserModal({
             {isEdit ? "แก้ไขผู้ใช้" : "เพิ่มผู้ใช้ใหม่"}
           </DialogTitle>
         </DialogHeader>
-
         <div className="grid grid-cols-2 gap-3 py-2">
           {!isEdit && (
             <>
@@ -180,7 +179,6 @@ function UserModal({
             </>
           )}
           {field("ชื่อ-สกุล", "name")}
-
           <div className="space-y-1">
             <Label className="text-xs text-slate-500">Role</Label>
             <Select value={role} onValueChange={(v) => setRole(v as Role)}>
@@ -194,11 +192,9 @@ function UserModal({
               </SelectContent>
             </Select>
           </div>
-
           {field("เพศ", "gender")}
           {field("วันเกิด (YYYY-MM-DD)", "birthday")}
           {field("ที่อยู่", "address")}
-
           {role === "student" && (
             <>
               {field("รหัสนักศึกษา", "student_id")}
@@ -208,7 +204,6 @@ function UserModal({
               {field("สาขา", "major")}
             </>
           )}
-
           {role === "professor" && (
             <>
               {field("รหัสอาจารย์", "professor_id")}
@@ -217,109 +212,101 @@ function UserModal({
             </>
           )}
         </div>
-
         <DialogFooter>
           <Button
             variant="outline"
             onClick={onClose}
-            className="h-9 text-[13px]">
+            className="h-9 text-[13px]"
+          >
             ยกเลิก
           </Button>
           <Button
             className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px]"
             onClick={handleSave}
-            disabled={saving}>
-            {saving ? (
-              <Loader2 size={14} className="animate-spin mr-1" />
-            ) : null}
+            disabled={saving}
+          >
+            {saving && <Loader2 size={14} className="animate-spin mr-1" />}
             {isEdit ? "บันทึก" : "สร้างผู้ใช้"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
-// ─── Main Page ────────────────────────────────────────────────
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<GetMeResponse[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [filter, setFilter] = useState<UserFilterQuery>({
-    limit: PAGE_SIZE,
-    page: 1,
-  })
-  const [search, setSearch] = useState("")
-  const [roleFilter, setRoleFilter] = useState<string>("all")
-  const [loading, setLoading] = useState(false)
+  const [users, setUsers] = useState<GetMeResponse[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<GetMeResponse | undefined>();
+  const importRef = useRef<HTMLInputElement>(null);
 
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editTarget, setEditTarget] = useState<GetMeResponse | undefined>()
+  // Filter state ครบทุก field ตาม UserFilterQuery
+  const [filter, setFilter] = useState<UserFilterQuery>({});
+  const setF = (k: keyof UserFilterQuery, v: string | number | undefined) => {
+    setFilter((p) => ({ ...p, [k]: v }));
+    setPage(1);
+  };
 
-  const importRef = useRef<HTMLInputElement>(null)
-  const [importing, setImporting] = useState(false)
-
-  const fetchUsers = async (f: UserFilterQuery) => {
-    setLoading(true)
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await userService.getAllUsers(f)
-      setUsers(res.data)
-      setTotal(res.total)
-    } catch {
-      /* handle */
+      const cleanFilter = Object.fromEntries(
+        Object.entries(filter).filter(
+          ([, v]) => v !== undefined && v !== "" && v !== "all",
+        ),
+      );
+      const res = await userService.getAllUsers({
+        ...cleanFilter,
+        page,
+        limit: PAGE_SIZE,
+      });
+      setUsers(res.data ?? []);
+      setTotal(res.total ?? 0);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, [filter, page]);
 
   useEffect(() => {
-    const f: UserFilterQuery = {
-      ...filter,
-      page,
-      search: search || undefined,
-      role: roleFilter !== "all" ? (roleFilter as Role) : undefined,
-    }
-    fetchUsers(f)
-  }, [page, search, roleFilter])
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleSave = async (
     data: CreateUserRequest | UpdateUserAdminRequest,
     isEdit: boolean,
   ) => {
-    if (isEdit && editTarget) {
+    if (isEdit && editTarget)
       await userService.updateUser(
         editTarget.id,
         data as UpdateUserAdminRequest,
-      )
-    } else {
-      await userService.createUser(data as CreateUserRequest)
-    }
-    fetchUsers({ ...filter, page, search: search || undefined })
-  }
+      );
+    else await userService.createUser(data as CreateUserRequest);
+    fetchUsers();
+  };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("ยืนยันการลบผู้ใช้นี้?")) return
-    await userService.deleteUser(id)
-    fetchUsers({ ...filter, page })
-  }
+    if (!confirm("ยืนยันการลบ?")) return;
+    await userService.deleteUser(id);
+    fetchUsers();
+  };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImporting(true)
+    const file = e.target.files?.[0];
+    if (!file) return;
     try {
-      await userService.importUsers(file)
-      fetchUsers({ ...filter, page })
-      alert("นำเข้าข้อมูลสำเร็จ")
+      await userService.importUsers(file);
+      fetchUsers();
+      alert("นำเข้าสำเร็จ");
     } catch {
-      alert("เกิดข้อผิดพลาดในการนำเข้า")
-    } finally {
-      setImporting(false)
-      e.target.value = ""
+      alert("เกิดข้อผิดพลาด");
     }
-  }
+    e.target.value = "";
+  };
 
-  const totalPages = Math.ceil(total / PAGE_SIZE)
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -329,9 +316,8 @@ export default function AdminUsersPage() {
           title="จัดการผู้ใช้"
           subtitle={`ทั้งหมด ${total.toLocaleString()} คน`}
         />
-
         <main className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Toolbar */}
+          {/* ── Filter bar row 1 ── */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-48">
               <Search
@@ -339,23 +325,20 @@ export default function AdminUsersPage() {
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <Input
-                placeholder="ค้นหาชื่อ, username..."
+                placeholder="ค้นหาชื่อ, username, รหัส, email, ที่อยู่ ..."
                 className="pl-9 h-9 text-[13px]"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(1)
-                }}
+                value={filter.search ?? ""}
+                onChange={(e) => setF("search", e.target.value || undefined)}
               />
             </div>
 
             <Select
-              value={roleFilter}
-              onValueChange={(v) => {
-                setRoleFilter(v)
-                setPage(1)
-              }}>
-              <SelectTrigger className="w-36 h-9 text-[13px]">
+              value={filter.role ?? "all"}
+              onValueChange={(v) =>
+                setF("role", v === "all" ? undefined : (v as Role))
+              }
+            >
+              <SelectTrigger className="w-32 h-9 text-[13px]">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
@@ -366,6 +349,74 @@ export default function AdminUsersPage() {
               </SelectContent>
             </Select>
 
+            <Select
+              value={filter.gender ?? "all"}
+              onValueChange={(v) => setF("gender", v === "all" ? undefined : v)}
+            >
+              <SelectTrigger className="w-28 h-9 text-[13px]">
+                <SelectValue placeholder="เพศ" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกเพศ</SelectItem>
+                <SelectItem value="male">ชาย</SelectItem>
+                <SelectItem value="female">หญิง</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Input
+              placeholder="คณะ"
+              className="w-32 h-9 text-[13px]"
+              value={filter.faculty ?? ""}
+              onChange={(e) => setF("faculty", e.target.value || undefined)}
+            />
+
+            <Input
+              placeholder="สาขา"
+              className="w-32 h-9 text-[13px]"
+              value={filter.major ?? ""}
+              onChange={(e) => setF("major", e.target.value || undefined)}
+            />
+
+            <Input
+              placeholder="ปีเข้า (เช่น 2566)"
+              type="number"
+              className="w-32 h-9 text-[13px]"
+              value={filter.entry_year ?? ""}
+              onChange={(e) =>
+                setF(
+                  "entry_year",
+                  e.target.value ? Number(e.target.value) : undefined,
+                )
+              }
+            />
+
+            <Input
+              placeholder="ชั้นปี"
+              type="number"
+              className="w-24 h-9 text-[13px]"
+              value={filter.year ?? ""}
+              onChange={(e) =>
+                setF(
+                  "year",
+                  e.target.value ? Number(e.target.value) : undefined,
+                )
+              }
+            />
+          </div>
+
+          {/* ── Action bar row 2 ── */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="h-9 text-[13px] text-slate-500"
+              onClick={() => {
+                setFilter({});
+                setPage(1);
+              }}
+            >
+              ล้างตัวกรอง
+            </Button>
+            <div className="flex-1" />
             <input
               ref={importRef}
               type="file"
@@ -377,26 +428,21 @@ export default function AdminUsersPage() {
               variant="outline"
               className="h-9 text-[13px] gap-1.5"
               onClick={() => importRef.current?.click()}
-              disabled={importing}>
-              {importing ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Upload size={14} />
-              )}
-              นำเข้า Excel
+            >
+              <Upload size={14} /> นำเข้า Excel
             </Button>
-
             <Button
               className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px] gap-1.5"
               onClick={() => {
-                setEditTarget(undefined)
-                setModalOpen(true)
-              }}>
+                setEditTarget(undefined);
+                setModalOpen(true);
+              }}
+            >
               <Plus size={14} /> เพิ่มผู้ใช้
             </Button>
           </div>
 
-          {/* Table */}
+          {/* ── Table ── */}
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
             {loading ? (
               <div className="flex items-center justify-center py-20 text-slate-400">
@@ -411,13 +457,19 @@ export default function AdminUsersPage() {
                         "ชื่อ-สกุล",
                         "Username",
                         "Role",
+                        "เพศ",
+                        "วันเกิด",
                         "รหัส",
-                        "คณะ/สาขา",
+                        "คณะ / สาขา",
+                        "ชั้นปี",
+                        "ปีเข้า (พ.ศ.)",
+                        "GPAX",
                         "",
                       ].map((h) => (
                         <th
                           key={h}
-                          className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap">
+                          className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap"
+                        >
                           {h}
                         </th>
                       ))}
@@ -427,7 +479,8 @@ export default function AdminUsersPage() {
                     {users.map((u) => (
                       <tr
                         key={u.id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                      >
                         <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">
                           {u.name}
                         </td>
@@ -436,9 +489,16 @@ export default function AdminUsersPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${ROLE_BADGE[u.role]}`}>
+                            className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${ROLE_BADGE[u.role]}`}
+                          >
                             {u.role}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 text-[12px]">
+                          {u.student?.gender ?? u.professor?.gender ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500 text-[12px]">
+                          {u.student?.birthday ?? u.professor?.birthday ?? "—"}
                         </td>
                         <td className="px-4 py-3 text-slate-500 font-mono text-[12px]">
                           {u.student?.student_id ??
@@ -452,6 +512,17 @@ export default function AdminUsersPage() {
                               ? `${u.professor.faculty} / ${u.professor.department}`
                               : "—"}
                         </td>
+                        <td className="px-4 py-3 text-center text-slate-500 text-[12px]">
+                          {u.student?.year ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-center text-slate-500 text-[12px]">
+                          {u.student?.entry_year
+                            ? u.student.entry_year + 543
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-center text-slate-500 text-[12px]">
+                          {u.student?.gpax ?? "—"}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5 justify-end">
                             <Button
@@ -459,16 +530,18 @@ export default function AdminUsersPage() {
                               size="sm"
                               className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
                               onClick={() => {
-                                setEditTarget(u)
-                                setModalOpen(true)
-                              }}>
+                                setEditTarget(u);
+                                setModalOpen(true);
+                              }}
+                            >
                               <Pencil size={13} />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"
-                              onClick={() => handleDelete(u.id)}>
+                              onClick={() => handleDelete(u.id)}
+                            >
                               <Trash2 size={13} />
                             </Button>
                           </div>
@@ -478,8 +551,9 @@ export default function AdminUsersPage() {
                     {users.length === 0 && (
                       <tr>
                         <td
-                          colSpan={6}
-                          className="py-16 text-center text-slate-400">
+                          colSpan={11}
+                          className="py-16 text-center text-slate-400"
+                        >
                           <Users
                             size={32}
                             className="mx-auto mb-2 opacity-30"
@@ -492,8 +566,6 @@ export default function AdminUsersPage() {
                 </table>
               </div>
             )}
-
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-700/60">
                 <p className="text-[12px] text-slate-400">
@@ -505,7 +577,8 @@ export default function AdminUsersPage() {
                     size="sm"
                     className="h-8 w-8 p-0"
                     disabled={page === 1}
-                    onClick={() => setPage((p) => p - 1)}>
+                    onClick={() => setPage((p) => p - 1)}
+                  >
                     <ChevronLeft size={14} />
                   </Button>
                   <Button
@@ -513,7 +586,8 @@ export default function AdminUsersPage() {
                     size="sm"
                     className="h-8 w-8 p-0"
                     disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}>
+                    onClick={() => setPage((p) => p + 1)}
+                  >
                     <ChevronRight size={14} />
                   </Button>
                 </div>
@@ -522,7 +596,6 @@ export default function AdminUsersPage() {
           </div>
         </main>
       </div>
-
       <UserModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -530,5 +603,5 @@ export default function AdminUsersPage() {
         initial={editTarget}
       />
     </div>
-  )
+  );
 }
