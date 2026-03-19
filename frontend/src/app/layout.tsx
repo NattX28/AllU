@@ -1,33 +1,36 @@
-import type { Metadata } from "next"
-import { Sarabun } from "next/font/google"
-import { ThemeProvider } from "next-themes"
-import { AuthProvider } from "@/contexts/AuthContext"
-import "./globals.css"
+import type { Metadata } from "next";
+import { Kanit, Inter } from "next/font/google";
+import { ThemeProvider } from "next-themes";
+import { AuthProvider } from "@/contexts/AuthContext";
+import "./globals.css";
 
-const sarabun = Sarabun({
+const inter = Inter({ subsets: ["latin"] });
+
+export const kanit = Kanit({
   subsets: ["thai", "latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sarabun",
-})
+  weight: ["400", "700"],
+  variable: "--font-kanit",
+  fallback: ["Inter", "system-ui", "sans-serif"],
+});
 
 export const metadata: Metadata = {
   title: "AllU — ระบบบริหารจัดการการศึกษา",
   description:
     "King Mongkut's University of Technology North Bangkok Course Management System",
-}
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="th" suppressHydrationWarning>
-      <body className={`${sarabun.variable} font-sarabun antialiased`}>
+      <body className={`${kanit.className} ${inter.className} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
