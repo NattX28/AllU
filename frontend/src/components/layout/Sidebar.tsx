@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/AuthContext"
-import { cn } from "@/lib/utils"
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   BookOpen,
@@ -16,12 +16,12 @@ import {
   LogOut,
   School,
   ChevronRight,
-} from "lucide-react"
+} from "lucide-react";
 
 interface NavItem {
-  label: string
-  href: string
-  icon: React.ElementType
+  label: string;
+  href: string;
+  icon: React.ElementType;
 }
 
 const studentNav: NavItem[] = [
@@ -30,42 +30,42 @@ const studentNav: NavItem[] = [
   { label: "ตารางเรียน", href: "/schedule", icon: CalendarDays },
   { label: "ผลการเรียน", href: "/grades", icon: GraduationCap },
   { label: "โปรไฟล์", href: "/profile", icon: User },
-]
+];
 
 const professorNav: NavItem[] = [
   { label: "Dashboard", href: "/professor/dashboard", icon: LayoutDashboard },
   { label: "จัดการเกรด", href: "/professor/grades", icon: GraduationCap },
-]
+];
 
 const adminNav: NavItem[] = [
   { label: "จัดการผู้ใช้", href: "/admin/users", icon: Users },
   { label: "จัดการวิชา", href: "/admin/courses", icon: BookMarked },
   { label: "จัดการกลุ่มเรียน", href: "/admin/sections", icon: Layers },
-]
+];
 
 const navMap = {
   student: studentNav,
   professor: professorNav,
   admin: adminNav,
-} as const
+} as const;
 
 const roleLabelMap = {
   student: "นักศึกษา",
   professor: "อาจารย์",
   admin: "ผู้ดูแลระบบ",
-} as const
+} as const;
 
 export default function Sidebar() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const { role, logout } = useAuth()
+  const pathname = usePathname();
+  const router = useRouter();
+  const { role, logout } = useAuth();
 
-  const nav = navMap[role ?? "student"] ?? []
+  const nav = navMap[role ?? "student"] ?? [];
 
   const handleLogout = async () => {
-    await logout()
-    router.push("/login")
-  }
+    await logout();
+    router.push("/login");
+  };
 
   return (
     <aside
@@ -73,17 +73,19 @@ export default function Sidebar() {
         "flex flex-col w-[240px] shrink-0 min-h-screen",
         "bg-[var(--sidebar)] text-[var(--sidebar-foreground)]",
         "border-r border-[var(--sidebar-border)]",
-      )}>
+      )}
+    >
       {/* ── Logo ── */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-[var(--sidebar-border)] shrink-0">
         <div
           className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
-          style={{ backgroundColor: "var(--sidebar-primary)" }}>
+          style={{ backgroundColor: "var(--sidebar-primary)" }}
+        >
           <School size={16} className="text-white" />
         </div>
         <div className="leading-tight">
           <p className="text-[14px] font-bold tracking-tight">AllU</p>
-          <p className="text-[11px] opacity-40">CMU Academic</p>
+          <p className="text-[11px] opacity-40">KMUTNB Academic</p>
         </div>
       </div>
 
@@ -95,7 +97,8 @@ export default function Sidebar() {
             backgroundColor:
               "color-mix(in oklch, var(--sidebar-primary) 14%, transparent)",
             color: "var(--sidebar-primary)",
-          }}>
+          }}
+        >
           {roleLabelMap[role ?? "student"]}
         </span>
       </div>
@@ -105,8 +108,8 @@ export default function Sidebar() {
         {nav.map((item) => {
           const active =
             pathname === item.href ||
-            (item.href !== "/" && pathname.startsWith(item.href + "/"))
-          const Icon = item.icon
+            (item.href !== "/" && pathname.startsWith(item.href + "/"));
+          const Icon = item.icon;
 
           return (
             <Link
@@ -123,7 +126,8 @@ export default function Sidebar() {
                 active
                   ? { backgroundColor: "var(--sidebar-primary)" }
                   : undefined
-              }>
+              }
+            >
               <Icon
                 size={16}
                 className={cn(
@@ -136,7 +140,7 @@ export default function Sidebar() {
                 <ChevronRight size={13} className="shrink-0 text-white/50" />
               )}
             </Link>
-          )
+          );
         })}
       </nav>
 
@@ -149,7 +153,8 @@ export default function Sidebar() {
             "text-[13.5px] font-medium opacity-60",
             "hover:opacity-100 hover:bg-[var(--sidebar-accent)]",
             "transition-all duration-150 group",
-          )}>
+          )}
+        >
           <LogOut
             size={16}
             className="shrink-0 group-hover:text-[var(--color-cmu-red)] transition-colors"
@@ -158,5 +163,5 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
-  )
+  );
 }

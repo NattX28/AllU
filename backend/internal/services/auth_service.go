@@ -41,14 +41,12 @@ func (s *AuthService) Login(req dto.LoginRequest) (*dto.AuthResponse, error) {
 		return nil, models.ErrInvalidCredentials
 	}
 
-	// Generate access token
 	accessToken, err := s.generateAccessToken(&user)
 	if err != nil {
 		return nil, err
 	}
 
-	// Generate refresh token
-	refreshToken, err := s.generateRefreshToken(&user)
+	refreshToken, err := s.storeNewRefreshToken(&user)
 	if err != nil {
 		return nil, err
 	}
@@ -65,47 +63,45 @@ func (s *AuthService) Logout(refreshToken string) error {
 	result := s.db.Model(&models.RefreshToken{}).
 		Where("token = ? AND revoked = ?", refreshToken, false).
 		Update("revoked", true)
-
-	if result.Error != nil {
-		return result.Error
-	}
-
-	return nil
+	return result.Error
 }
 
 func (s *AuthService) Refresh(oldRefreshToken string) (string, string, error) {
-	// Find token in db
 	var token models.RefreshToken
-	if err := s.db.Preload("User").Where("token = ? AND revoked = ?", oldRefreshToken, false).First(&token).Error; err != nil {
+	if err := s.db.Preload("User").
+		Preload("User.Student").
+		Preload("User.Professor").
+		Where("token = ? AND revoked = ?", oldRefreshToken, false).
+		First(&token).Error; err != nil {
 		return "", "", models.ErrInvalidRefreshToken
 	}
 
-	// Verify token
 	if time.Now().After(token.ExpiresAt) {
 		return "", "", models.ErrInvalidRefreshToken
 	}
 
-	// Revoke old token
+	// Revoke old token ก่อน
 	token.Revoked = true
-	s.db.Save(&token)
+	if err := s.db.Save(&token).Error; err != nil {
+		return "", "", err
+	}
 
-	// Generate new access token
-	newAccessToken, _ := s.generateAccessToken(&token.User)
-	newRefreshToken, _ := s.generateRefreshToken(&token.User)
+	newAccessToken, err := s.generateAccessToken(&token.User)
+	if err != nil {
+		return "", "", err
+	}
 
-	s.db.Create(&models.RefreshToken{
-		Token:     newRefreshToken,
-		UserID:    token.UserID,
-		ExpiresAt: time.Now().Add(time.Hour * 24 * 7),
-		Revoked:   false,
-	})
+	// storeNewRefreshToken จัดการ create ใน db เอง (ไม่ซ้ำซ้อน)
+	newRefreshToken, err := s.storeNewRefreshToken(&token.User)
+	if err != nil {
+		return "", "", err
+	}
 
 	return newAccessToken, newRefreshToken, nil
 }
 
 func (s *AuthService) generateAccessToken(user *models.User) (string, error) {
 	var profileID string
-
 	if user.Role == models.RoleStudent && user.Student != nil {
 		profileID = user.Student.ID.String()
 	} else if user.Role == models.RoleProfessor && user.Professor != nil {
@@ -121,28 +117,25 @@ func (s *AuthService) generateAccessToken(user *models.User) (string, error) {
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.jwtSecret))
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return t.SignedString([]byte(s.jwtSecret))
 }
 
-func (s *AuthService) generateRefreshToken(user *models.User) (string, error) {
-	// Generate random token string
-	tokenBytes := make([]byte, 32)
-	if _, err := rand.Read(tokenBytes); err != nil {
+// storeNewRefreshToken สร้าง token string และ insert 1 row เท่านั้น
+func (s *AuthService) storeNewRefreshToken(user *models.User) (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
+	tokenStr := hex.EncodeToString(b)
 
-	tokenStr := hex.EncodeToString(tokenBytes)
-
-	// Store in db
-	refreshToken := models.RefreshToken{
+	row := models.RefreshToken{
 		Token:     tokenStr,
 		UserID:    user.ID,
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 		Revoked:   false,
 	}
-
-	if err := s.db.Create(&refreshToken).Error; err != nil {
+	if err := s.db.Create(&row).Error; err != nil {
 		return "", err
 	}
 

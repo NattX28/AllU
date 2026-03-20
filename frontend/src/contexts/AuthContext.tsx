@@ -5,13 +5,17 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import axios from "axios";
-import { setAccessToken } from "@/lib/axios";
+import api, { setAccessToken } from "@/lib/axios"; // ← เพิ่ม api ตรงนี้
 import type { LoginRequest, LoginResponse, Role } from "@/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
+
+// access token อายุ 30 นาที แจ้งเตือนก่อน 5 นาที
+const WARN_AT_MS = 25 * 60 * 1000;
 
 interface AuthContextValue {
   userID: string | null;
@@ -31,39 +35,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileID, setProfileID] = useState<string | null>(null);
   const [accessToken, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const warnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // On mount: try silent refresh to restore session from HttpOnly cookie
+  function startWarnTimer() {
+    if (warnTimer.current) clearTimeout(warnTimer.current);
+    warnTimer.current = setTimeout(() => {
+      const extend = window.confirm(
+        "เซสชันจะหมดอายุใน 5 นาที\nต้องการใช้งานต่อหรือไม่?",
+      );
+      if (extend) {
+        // ใช้ axios ตรงๆ ได้ตรงนี้ เพราะเป็นการ refresh (ไม่มี token แนบ)
+        axios
+          .post<{ token: string }>(
+            `${BASE_URL}/auth/refresh`,
+            {},
+            { withCredentials: true },
+          )
+          .then(({ data }) => {
+            const payload = JSON.parse(atob(data.token.split(".")[1]));
+            applySession(
+              data.token,
+              payload.user_id,
+              payload.role,
+              payload.profile_id ?? "",
+            );
+          })
+          .catch(() => {
+            window.location.href = "/login";
+          });
+      }
+    }, WARN_AT_MS);
+  }
+
   useEffect(() => {
     (async () => {
       try {
+        // ใช้ axios ตรงๆ ได้ตรงนี้ เพราะเป็นการ refresh ครั้งแรก (ยังไม่มี token)
         const { data } = await axios.post<{ token: string }>(
           `${BASE_URL}/auth/refresh`,
           {},
           { withCredentials: true },
         );
-        // Decode basic claims from JWT payload (no lib needed for non-sensitive info)
         const payload = JSON.parse(atob(data.token.split(".")[1]));
         applySession(
           data.token,
           payload.user_id,
           payload.role,
-          payload.profile_id,
+          payload.profile_id ?? "",
         );
       } catch {
-        // No valid session — user needs to log in
+        // ไม่มี session → ต้อง login ใหม่
       } finally {
         setIsLoading(false);
       }
     })();
+
+    return () => {
+      if (warnTimer.current) clearTimeout(warnTimer.current);
+    };
   }, []);
 
   function applySession(token: string, uid: string, r: Role, pid: string) {
+    setAccessToken(token); // ← set ใน axios instance ก่อน (sync)
+    document.cookie = `access_token_hint=${token}; path=/; SameSite=Lax`;
+    startWarnTimer();
+    // setState ทีหลัง (trigger re-render)
     setToken(token);
     setUserID(uid);
     setRole(r);
     setProfileID(pid);
-    setAccessToken(token); // sync to axios singleton
-    document.cookie = `access_token_hint=${token}; path=/; SameSite=Lax`;
   }
 
   const login = useCallback(
@@ -73,7 +113,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         req,
         { withCredentials: true },
       );
-      // Decode profile_id from token
       const payload = JSON.parse(atob(data.token.split(".")[1]));
       applySession(
         data.token,
@@ -88,12 +127,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await axios.post(
-        `${BASE_URL}/auth/logout`,
-        {},
-        { withCredentials: true },
-      );
+      await api.post("/auth/logout"); // ← เปลี่ยนตรงนี้จุดเดียว ให้แนบ token ไปด้วย
     } finally {
+      if (warnTimer.current) clearTimeout(warnTimer.current);
       setToken(null);
       setUserID(null);
       setRole(null);
@@ -105,15 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{
-        userID,
-        role,
-        profileID,
-        accessToken,
-        isLoading,
-        login,
-        logout,
-      }}
+      value={{ userID, role, profileID, accessToken, isLoading, login, logout }}
     >
       {children}
     </AuthContext.Provider>

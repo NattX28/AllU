@@ -1,4 +1,3 @@
-// src/app/(admin)/admin/users/page.tsx  →  URL: /admin/users
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,8 +9,7 @@ import type {
   UpdateUserAdminRequest,
   Role,
 } from "@/types";
-import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
+import ProtectedLayout from "@/components/layout/ProtectedLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -242,9 +240,8 @@ export default function AdminUsersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<GetMeResponse | undefined>();
   const importRef = useRef<HTMLInputElement>(null);
-
-  // Filter state ครบทุก field ตาม UserFilterQuery
   const [filter, setFilter] = useState<UserFilterQuery>({});
+
   const setF = (k: keyof UserFilterQuery, v: string | number | undefined) => {
     setFilter((p) => ({ ...p, [k]: v }));
     setPage(1);
@@ -309,299 +306,284 @@ export default function AdminUsersPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header
-          title="จัดการผู้ใช้"
-          subtitle={`ทั้งหมด ${total.toLocaleString()} คน`}
-        />
-        <main className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* ── Filter bar row 1 ── */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-48">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <Input
-                placeholder="ค้นหาชื่อ, username, รหัส, email, ที่อยู่ ..."
-                className="pl-9 h-9 text-[13px]"
-                value={filter.search ?? ""}
-                onChange={(e) => setF("search", e.target.value || undefined)}
-              />
+    <ProtectedLayout
+      title="จัดการผู้ใช้"
+      subtitle={`ทั้งหมด ${total.toLocaleString()} คน`}
+      allowedRoles={["admin"]}
+    >
+      <main className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* Filter bar */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-48">
+            <Search
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <Input
+              placeholder="ค้นหาชื่อ, username, รหัส, email, ที่อยู่ ..."
+              className="pl-9 h-9 text-[13px]"
+              value={filter.search ?? ""}
+              onChange={(e) => setF("search", e.target.value || undefined)}
+            />
+          </div>
+          <Select
+            value={filter.role ?? "all"}
+            onValueChange={(v) =>
+              setF("role", v === "all" ? undefined : (v as Role))
+            }
+          >
+            <SelectTrigger className="w-32 h-9 text-[13px]">
+              <SelectValue placeholder="Role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุก Role</SelectItem>
+              <SelectItem value="student">Student</SelectItem>
+              <SelectItem value="professor">Professor</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={filter.gender ?? "all"}
+            onValueChange={(v) => setF("gender", v === "all" ? undefined : v)}
+          >
+            <SelectTrigger className="w-28 h-9 text-[13px]">
+              <SelectValue placeholder="เพศ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกเพศ</SelectItem>
+              <SelectItem value="male">ชาย</SelectItem>
+              <SelectItem value="female">หญิง</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            placeholder="คณะ"
+            className="w-32 h-9 text-[13px]"
+            value={filter.faculty ?? ""}
+            onChange={(e) => setF("faculty", e.target.value || undefined)}
+          />
+          <Input
+            placeholder="สาขา"
+            className="w-32 h-9 text-[13px]"
+            value={filter.major ?? ""}
+            onChange={(e) => setF("major", e.target.value || undefined)}
+          />
+          <Input
+            placeholder="ปีเข้า (เช่น 2566)"
+            type="number"
+            className="w-32 h-9 text-[13px]"
+            value={filter.entry_year ?? ""}
+            onChange={(e) =>
+              setF(
+                "entry_year",
+                e.target.value ? Number(e.target.value) : undefined,
+              )
+            }
+          />
+          <Input
+            placeholder="ชั้นปี"
+            type="number"
+            className="w-24 h-9 text-[13px]"
+            value={filter.year ?? ""}
+            onChange={(e) =>
+              setF("year", e.target.value ? Number(e.target.value) : undefined)
+            }
+          />
+        </div>
+
+        {/* Action bar */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            className="h-9 text-[13px] text-slate-500"
+            onClick={() => {
+              setFilter({});
+              setPage(1);
+            }}
+          >
+            ล้างตัวกรอง
+          </Button>
+          <div className="flex-1" />
+          <input
+            ref={importRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleImport}
+          />
+          <Button
+            variant="outline"
+            className="h-9 text-[13px] gap-1.5"
+            onClick={() => importRef.current?.click()}
+          >
+            <Upload size={14} /> นำเข้า Excel
+          </Button>
+          <Button
+            className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px] gap-1.5"
+            onClick={() => {
+              setEditTarget(undefined);
+              setModalOpen(true);
+            }}
+          >
+            <Plus size={14} /> เพิ่มผู้ใช้
+          </Button>
+        </div>
+
+        {/* Table */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-20 text-slate-400">
+              <Loader2 size={24} className="animate-spin mr-2" /> กำลังโหลด...
             </div>
-
-            <Select
-              value={filter.role ?? "all"}
-              onValueChange={(v) =>
-                setF("role", v === "all" ? undefined : (v as Role))
-              }
-            >
-              <SelectTrigger className="w-32 h-9 text-[13px]">
-                <SelectValue placeholder="Role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ทุก Role</SelectItem>
-                <SelectItem value="student">Student</SelectItem>
-                <SelectItem value="professor">Professor</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={filter.gender ?? "all"}
-              onValueChange={(v) => setF("gender", v === "all" ? undefined : v)}
-            >
-              <SelectTrigger className="w-28 h-9 text-[13px]">
-                <SelectValue placeholder="เพศ" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">ทุกเพศ</SelectItem>
-                <SelectItem value="male">ชาย</SelectItem>
-                <SelectItem value="female">หญิง</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Input
-              placeholder="คณะ"
-              className="w-32 h-9 text-[13px]"
-              value={filter.faculty ?? ""}
-              onChange={(e) => setF("faculty", e.target.value || undefined)}
-            />
-
-            <Input
-              placeholder="สาขา"
-              className="w-32 h-9 text-[13px]"
-              value={filter.major ?? ""}
-              onChange={(e) => setF("major", e.target.value || undefined)}
-            />
-
-            <Input
-              placeholder="ปีเข้า (เช่น 2566)"
-              type="number"
-              className="w-32 h-9 text-[13px]"
-              value={filter.entry_year ?? ""}
-              onChange={(e) =>
-                setF(
-                  "entry_year",
-                  e.target.value ? Number(e.target.value) : undefined,
-                )
-              }
-            />
-
-            <Input
-              placeholder="ชั้นปี"
-              type="number"
-              className="w-24 h-9 text-[13px]"
-              value={filter.year ?? ""}
-              onChange={(e) =>
-                setF(
-                  "year",
-                  e.target.value ? Number(e.target.value) : undefined,
-                )
-              }
-            />
-          </div>
-
-          {/* ── Action bar row 2 ── */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              className="h-9 text-[13px] text-slate-500"
-              onClick={() => {
-                setFilter({});
-                setPage(1);
-              }}
-            >
-              ล้างตัวกรอง
-            </Button>
-            <div className="flex-1" />
-            <input
-              ref={importRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleImport}
-            />
-            <Button
-              variant="outline"
-              className="h-9 text-[13px] gap-1.5"
-              onClick={() => importRef.current?.click()}
-            >
-              <Upload size={14} /> นำเข้า Excel
-            </Button>
-            <Button
-              className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px] gap-1.5"
-              onClick={() => {
-                setEditTarget(undefined);
-                setModalOpen(true);
-              }}
-            >
-              <Plus size={14} /> เพิ่มผู้ใช้
-            </Button>
-          </div>
-
-          {/* ── Table ── */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
-            {loading ? (
-              <div className="flex items-center justify-center py-20 text-slate-400">
-                <Loader2 size={24} className="animate-spin mr-2" /> กำลังโหลด...
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-[13px]">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800/50">
-                      {[
-                        "ชื่อ-สกุล",
-                        "Username",
-                        "Role",
-                        "เพศ",
-                        "วันเกิด",
-                        "รหัส",
-                        "คณะ / สาขา",
-                        "ชั้นปี",
-                        "ปีเข้า (พ.ศ.)",
-                        "GPAX",
-                        "",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
-                    {users.map((u) => (
-                      <tr
-                        key={u.id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50">
+                    {[
+                      "ชื่อ-สกุล",
+                      "Username",
+                      "Role",
+                      "เพศ",
+                      "วันเกิด",
+                      "รหัส",
+                      "คณะ / สาขา",
+                      "ชั้นปี",
+                      "ปีเข้า (พ.ศ.)",
+                      "GPAX",
+                      "",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap"
                       >
-                        <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">
-                          {u.name}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500 font-mono text-[12px]">
-                          {u.username}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${ROLE_BADGE[u.role]}`}
-                          >
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-slate-500 text-[12px]">
-                          {u.student?.gender ?? u.professor?.gender ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500 text-[12px]">
-                          {u.student?.birthday ?? u.professor?.birthday ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500 font-mono text-[12px]">
-                          {u.student?.student_id ??
-                            u.professor?.professor_id ??
-                            "—"}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500 text-[12px]">
-                          {u.student
-                            ? `${u.student.faculty} / ${u.student.major}`
-                            : u.professor
-                              ? `${u.professor.faculty} / ${u.professor.department}`
-                              : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-500 text-[12px]">
-                          {u.student?.year ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-500 text-[12px]">
-                          {u.student?.entry_year
-                            ? u.student.entry_year + 543
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-500 text-[12px]">
-                          {u.student?.gpax ?? "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
-                              onClick={() => {
-                                setEditTarget(u);
-                                setModalOpen(true);
-                              }}
-                            >
-                              <Pencil size={13} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"
-                              onClick={() => handleDelete(u.id)}
-                            >
-                              <Trash2 size={13} />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
+                        {h}
+                      </th>
                     ))}
-                    {users.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={11}
-                          className="py-16 text-center text-slate-400"
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
+                  {users.map((u) => (
+                    <tr
+                      key={u.id}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">
+                        {u.name}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 font-mono text-[12px]">
+                        {u.username}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${ROLE_BADGE[u.role]}`}
                         >
-                          <Users
-                            size={32}
-                            className="mx-auto mb-2 opacity-30"
-                          />
-                          ไม่พบผู้ใช้
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 text-[12px]">
+                        {u.student?.gender ?? u.professor?.gender ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 text-[12px]">
+                        {u.student?.birthday ?? u.professor?.birthday ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 font-mono text-[12px]">
+                        {u.student?.student_id ??
+                          u.professor?.professor_id ??
+                          "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 text-[12px]">
+                        {u.student
+                          ? `${u.student.faculty} / ${u.student.major}`
+                          : u.professor
+                            ? `${u.professor.faculty} / ${u.professor.department}`
+                            : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-500 text-[12px]">
+                        {u.student?.year ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-500 text-[12px]">
+                        {u.student?.entry_year
+                          ? u.student.entry_year + 543
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-500 text-[12px]">
+                        {u.student?.gpax ?? "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
+                            onClick={() => {
+                              setEditTarget(u);
+                              setModalOpen(true);
+                            }}
+                          >
+                            <Pencil size={13} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"
+                            onClick={() => handleDelete(u.id)}
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={11}
+                        className="py-16 text-center text-slate-400"
+                      >
+                        <Users size={32} className="mx-auto mb-2 opacity-30" />
+                        ไม่พบผู้ใช้
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-700/60">
+              <p className="text-[12px] text-slate-400">
+                หน้า {page}/{totalPages} ({total} รายการ)
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <ChevronLeft size={14} />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  <ChevronRight size={14} />
+                </Button>
               </div>
-            )}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-700/60">
-                <p className="text-[12px] text-slate-400">
-                  หน้า {page}/{totalPages} ({total} รายการ)
-                </p>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    disabled={page === 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    <ChevronLeft size={14} />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    <ChevronRight size={14} />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
+            </div>
+          )}
+        </div>
+      </main>
       <UserModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
         initial={editTarget}
       />
-    </div>
+    </ProtectedLayout>
   );
 }

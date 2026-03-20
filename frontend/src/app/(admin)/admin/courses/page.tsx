@@ -7,8 +7,7 @@ import type {
   CreateCourseRequest,
   UpdateCourseRequest,
 } from "@/types";
-import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
+import ProtectedLayout from "@/components/layout/ProtectedLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,10 +55,6 @@ function CourseModal({
     name_en: initial?.name_en ?? "",
     credits: initial?.credits ?? 3,
     category: "",
-    lecture_hours: 0,
-    lab_hours: 0,
-    self_study_hours: 0,
-    max_entry_year: 0,
   });
   const set = (k: string, v: string | number) =>
     setForm((p) => ({ ...p, [k]: v }));
@@ -213,10 +208,10 @@ export default function AdminCoursesPage() {
   const [editTarget, setEditTarget] = useState<CourseResponse | undefined>();
   const importRef = useRef<HTMLInputElement>(null);
 
-  const fetch = () =>
+  const fetchCourses = () =>
     courseService.getAll().then(setCourses).catch(console.error);
   useEffect(() => {
-    fetch();
+    fetchCourses();
   }, []);
 
   const handleSave = async (
@@ -229,7 +224,7 @@ export default function AdminCoursesPage() {
         data as UpdateCourseRequest,
       );
     else await courseService.createCourse(data as CreateCourseRequest);
-    fetch();
+    fetchCourses();
   };
 
   const filtered = courses.filter(
@@ -240,151 +235,148 @@ export default function AdminCoursesPage() {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header
-          title="จัดการรายวิชา"
-          subtitle={`${courses.length} วิชาทั้งหมด`}
-        />
-        <main className="flex-1 overflow-y-auto p-6 space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-48">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <Input
-                placeholder="ค้นหารหัสวิชา..."
-                className="pl-9 h-9 text-[13px]"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <input
-              ref={importRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  await courseService.importCourses(f);
-                  fetch();
-                }
-                e.target.value = "";
-              }}
+    <ProtectedLayout
+      title="จัดการรายวิชา"
+      subtitle={`${courses.length} วิชาทั้งหมด`}
+      allowedRoles={["admin"]}
+    >
+      <main className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-48">
+            <Search
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             />
-            <Button
-              variant="outline"
-              className="h-9 text-[13px] gap-1.5"
-              onClick={() => importRef.current?.click()}
-            >
-              <Upload size={14} /> นำเข้า Excel
-            </Button>
-            <Button
-              className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px] gap-1.5"
-              onClick={() => {
-                setEditTarget(undefined);
-                setModalOpen(true);
-              }}
-            >
-              <Plus size={14} /> เพิ่มวิชา
-            </Button>
+            <Input
+              placeholder="ค้นหารหัสวิชา..."
+              className="pl-9 h-9 text-[13px]"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/50">
-                    {[
-                      "รหัสวิชา",
-                      "ชื่อ (ไทย)",
-                      "ชื่อ (อังกฤษ)",
-                      "หน่วยกิต",
-                      "กลุ่มเรียน",
-                      "",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
-                  {filtered.map((c) => (
-                    <tr
-                      key={c.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+          <input
+            ref={importRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (f) {
+                await courseService.importCourses(f);
+                fetchCourses();
+              }
+              e.target.value = "";
+            }}
+          />
+          <Button
+            variant="outline"
+            className="h-9 text-[13px] gap-1.5"
+            onClick={() => importRef.current?.click()}
+          >
+            <Upload size={14} /> นำเข้า Excel
+          </Button>
+          <Button
+            className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px] gap-1.5"
+            onClick={() => {
+              setEditTarget(undefined);
+              setModalOpen(true);
+            }}
+          >
+            <Plus size={14} /> เพิ่มวิชา
+          </Button>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50">
+                  {[
+                    "รหัสวิชา",
+                    "ชื่อ (ไทย)",
+                    "ชื่อ (อังกฤษ)",
+                    "หน่วยกิต",
+                    "กลุ่มเรียน",
+                    "",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40"
                     >
-                      <td className="px-4 py-3 font-medium font-mono text-slate-800 dark:text-slate-100">
-                        {c.id}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                        {c.name_th}
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">{c.name_en}</td>
-                      <td className="px-4 py-3 text-center text-slate-500">
-                        {c.credits}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant="secondary" className="text-[11px]">
-                          {c.sections?.length ?? 0} กลุ่ม
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
-                            onClick={() => {
-                              setEditTarget(c);
-                              setModalOpen(true);
-                            }}
-                          >
-                            <Pencil size={13} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"
-                            onClick={async () => {
-                              if (confirm(`ลบ ${c.id}?`)) {
-                                await courseService.deleteCourse(c.id);
-                                fetch();
-                              }
-                            }}
-                          >
-                            <Trash2 size={13} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                      {h}
+                    </th>
                   ))}
-                  {filtered.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="py-16 text-center text-slate-400"
-                      >
-                        <BookMarked
-                          size={32}
-                          className="mx-auto mb-2 opacity-30"
-                        />
-                        ไม่พบรายวิชา
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
+                {filtered.map((c) => (
+                  <tr
+                    key={c.id}
+                    className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                  >
+                    <td className="px-4 py-3 font-medium font-mono text-slate-800 dark:text-slate-100">
+                      {c.id}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                      {c.name_th}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">{c.name_en}</td>
+                    <td className="px-4 py-3 text-center text-slate-500">
+                      {c.credits}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant="secondary" className="text-[11px]">
+                        {c.sections?.length ?? 0} กลุ่ม
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
+                          onClick={() => {
+                            setEditTarget(c);
+                            setModalOpen(true);
+                          }}
+                        >
+                          <Pencil size={13} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"
+                          onClick={async () => {
+                            if (confirm(`ลบ ${c.id}?`)) {
+                              await courseService.deleteCourse(c.id);
+                              fetchCourses();
+                            }
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="py-16 text-center text-slate-400"
+                    >
+                      <BookMarked
+                        size={32}
+                        className="mx-auto mb-2 opacity-30"
+                      />
+                      ไม่พบรายวิชา
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
       <CourseModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -392,6 +384,6 @@ export default function AdminCoursesPage() {
         initial={editTarget}
         allCourses={courses}
       />
-    </div>
+    </ProtectedLayout>
   );
 }
