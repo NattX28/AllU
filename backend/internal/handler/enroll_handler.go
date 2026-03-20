@@ -51,16 +51,18 @@ func (h *EnrollHandler) Confirm(c fiber.Ctx) error {
 			"error": "failed to parse request body",
 		})
 	}
+
 	res, err := h.enrollService.ConfirmEnrollment(studentID, req.SectionIDs)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to confirm enroll",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
+
 	return c.Status(fiber.StatusCreated).JSON(res)
 }
 
-func (h *EnrollHandler) UpdateSchedule(c fiber.Ctx) error {
+func (h *EnrollHandler) Update(c fiber.Ctx) error {
 	studentID, ok := c.Locals("profileID").(uuid.UUID)
 	if !ok {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -68,20 +70,21 @@ func (h *EnrollHandler) UpdateSchedule(c fiber.Ctx) error {
 		})
 	}
 
-	var req dto.ConfirmEnrollRequest
+	var req dto.UpdateEnrollRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "failed to parse request body",
 		})
 	}
+
 	if err := h.enrollService.UpdateEnrollment(studentID, req.SectionIDs); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "failed to update enroll",
-			"error":   err.Error(),
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "update schedule success",
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "enrollment updated successfully",
 	})
 }
 
@@ -100,31 +103,81 @@ func (h *EnrollHandler) Withdraw(c fiber.Ctx) error {
 		})
 	}
 
-	secID, _ := uuid.Parse(req.SectionID)
-	err := h.enrollService.WithdrawCourse(studentID, secID)
+	enrollmentID, err := uuid.Parse(req.EnrollmentID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "failed to withdraw enroll",
-			"error":   err.Error(),
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid enrollment_id",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "withdraw success",
+	if err := h.enrollService.WithdrawCourse(studentID, enrollmentID); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "withdrawn successfully",
 	})
 }
 
-func (h *EnrollHandler) GetMyEnrollments(c fiber.Ctx) error {
-	studentID, _ := c.Locals("profileID").(uuid.UUID)
-	mode := c.Query("mode", "all")
+func (h *EnrollHandler) GetHistory(c fiber.Ctx) error {
+	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "failed to get student ID",
+		})
+	}
 
-	res, err := h.enrollService.GetMyEnrollments(studentID, mode)
+	sem := parseIntQuery(c.Query("semester"))
+	year := parseIntQuery(c.Query("academic_year"))
+
+	res, err := h.enrollService.GetHistory(studentID, sem, year)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "failed to get my enrollments",
-			"error":   err.Error(),
+			"error": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(res)
+}
+
+func (h *EnrollHandler) GetSchedule(c fiber.Ctx) error {
+	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "failed to get student ID",
+		})
+	}
+
+	sem := parseIntQuery(c.Query("semester"))
+	year := parseIntQuery(c.Query("academic_year"))
+
+	if sem == 0 || year == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "semester and academic_year are required",
+		})
+	}
+
+	res, err := h.enrollService.GetSchedule(studentID, sem, year)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}
+
+// ─── Helper ───
+
+func parseIntQuery(s string) int {
+	n := 0
+	for _, ch := range s {
+		if ch < '0' || ch > '9' {
+			return 0
+		}
+		n = n*10 + int(ch-'0')
+	}
+	return n
 }

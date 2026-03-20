@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
@@ -23,18 +22,80 @@ func NewEnrollService(db *gorm.DB, rdb *redis.Client) *EnrollService {
 	return &EnrollService{db: db, rdb: rdb}
 }
 
+// ─── Helpers ────
+
+// getActivePeriod returns the current active enrollment period or error if none.
+func (s *EnrollService) getActivePeriod() (*models.EnrollmentPeriod, error) {
+	var period models.EnrollmentPeriod
+	if err := s.db.Where("is_active = ?", true).First(&period).Error; err != nil {
+		return nil, errors.New("no active enrollment period")
+	}
+	return &period, nil
+}
+
+// getStudent fetches student by profile UUID (students.id).
+func (s *EnrollService) getStudent(tx *gorm.DB, studentID uuid.UUID) (*models.Student, error) {
+	var std models.Student
+	if err := tx.First(&std, "id = ?", studentID).Error; err != nil {
+		return nil, errors.New("student not found")
+	}
+	return &std, nil
+}
+
+func majorToAbbr(major string) string {
+	words := strings.Fields(major)
+	var abbr strings.Builder
+	for _, w := range words {
+		if len(w) > 0 {
+			abbr.WriteByte(strings.ToUpper(w)[0])
+		}
+	}
+	return abbr.String()
+}
+
+// checkMajorPermission returns error if course is not open for the student's major.
+func checkMajorPermission(course models.Course, major string) error {
+	if course.Category == models.ElectiveCourse || course.Category == models.GenEdCourse {
+		return nil
+	}
+	if major == "admin" {
+		return nil
+	}
+
+	abbr := majorToAbbr(major) // "Computer Science" → "CS"
+	if !strings.HasSuffix(strings.TrimSpace(course.NameEn), abbr) {
+		return fmt.Errorf("course %s is not open for major %s", course.NameEn, major)
+	}
+	return nil
+}
+
+// mapSchedules converts model schedules to DTO slots.
+func mapSchedules(schedules []models.SectionSchedule) []dto.ScheduleSlot {
+	slots := make([]dto.ScheduleSlot, 0, len(schedules))
+	for _, sch := range schedules {
+		slots = append(slots, dto.ScheduleSlot{
+			Day:       string(sch.Day),
+			StartTime: sch.StartTime,
+			EndTime:   sch.EndTime,
+			Room:      sch.Room,
+			Type:      string(sch.Type),
+		})
+	}
+	return slots
+}
+
+// ─── Seat Check ────
+
 func (s *EnrollService) CheckDraftSeats(sectionIDs []string) ([]dto.CheckSeatsResponse, error) {
 	ctx := context.Background()
-	var results []dto.CheckSeatsResponse
+	results := make([]dto.CheckSeatsResponse, 0, len(sectionIDs))
 
 	for _, sid := range sectionIDs {
 		key := fmt.Sprintf("section:%s:seats", sid)
-
 		val, err := s.rdb.Get(ctx, key).Int()
 		if err != nil {
 			val = 0
 		}
-
 		results = append(results, dto.CheckSeatsResponse{
 			SectionID: sid,
 			Available: val,
@@ -45,66 +106,65 @@ func (s *EnrollService) CheckDraftSeats(sectionIDs []string) ([]dto.CheckSeatsRe
 	return results, nil
 }
 
+// ─── Confirm ────
+
 func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []string) (*dto.ConfirmEnrollResponse, error) {
+	if _, err := s.getActivePeriod(); err != nil {
+		return nil, err
+	}
+
 	ctx := context.Background()
 	var processedIDs []string
 	var totalCredits int
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		// Check by major
-		var std models.Student
-		if err := tx.First(&std, "id = ?", studentID).Error; err != nil {
-			return errors.New("not found student")
+		std, err := s.getStudent(tx, studentID)
+		if err != nil {
+			return err
 		}
 
-		// Check credits and major
+		// Validate all sections first before touching Redis
 		for _, sidStr := range sectionIDs {
 			sid, _ := uuid.Parse(sidStr)
 			var sec models.Section
 			if err := tx.Preload("Course").First(&sec, "id = ?", sid).Error; err != nil {
 				return fmt.Errorf("section not found: %s", sidStr)
 			}
-
-			if sec.Course.Category != models.ElectiveCourse && sec.Course.Category != models.GenEdCourse {
-				if !strings.Contains(sec.Course.NameEn, std.Major) && std.Major != "admin" {
-					return fmt.Errorf("course %s is not open for major %s", sec.Course.NameEn, std.Major)
-				}
+			if err := checkMajorPermission(sec.Course, std.Major); err != nil {
+				return err
 			}
-
 			totalCredits += sec.Course.Credits
 		}
 
 		if totalCredits > 22 {
-			return fmt.Errorf("total credits exceed limit: %d", totalCredits)
+			return fmt.Errorf("total credits exceed limit: %d (max 22)", totalCredits)
 		}
 
-		// Decrease seats in Redis
+		// Decrement seats and save enrollments
 		for _, sidStr := range sectionIDs {
 			sid, _ := uuid.Parse(sidStr)
 			key := fmt.Sprintf("section:%s:seats", sidStr)
 
 			remaining, _ := s.rdb.Decr(ctx, key).Result()
 			if remaining < 0 {
+				s.rdb.Incr(ctx, key)
 				return fmt.Errorf("section %s is full", sidStr)
 			}
-			processedIDs = append(processedIDs, sidStr) // Rollback for Redis
+			processedIDs = append(processedIDs, sidStr)
 
-			// Save enrollment
 			var sec models.Section
 			tx.First(&sec, "id = ?", sid)
 
-			newEnroll := models.Enrollment{
+			if err := tx.Create(&models.Enrollment{
 				StudentID:    std.StudentID,
 				SectionID:    sid,
-				Status:       "enrolled",
+				Status:       models.StatusEnrolled,
 				Semester:     sec.Semester,
 				AcademicYear: sec.AcademicYear,
-			}
-			if err := tx.Create(&newEnroll).Error; err != nil {
+			}).Error; err != nil {
 				return err
 			}
 
-			// Update in section table for map with Redis
 			tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
 		}
 
@@ -112,9 +172,9 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 	})
 
 	if err != nil {
-		for _, sidToRestore := range processedIDs {
-			key := fmt.Sprintf("section:%s:seats", sidToRestore)
-			s.rdb.Incr(ctx, key)
+		// Rollback Redis seats that were already decremented
+		for _, sidStr := range processedIDs {
+			s.rdb.Incr(ctx, fmt.Sprintf("section:%s:seats", sidStr))
 		}
 		return nil, err
 	}
@@ -126,166 +186,212 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 	}, nil
 }
 
+// ─── Update ────
+
 func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) error {
+	if _, err := s.getActivePeriod(); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Check fac/major
-		var std models.Student
-		if err := tx.First(&std, "id = ?", studentID).Error; err != nil {
-			return errors.New("student not found")
+		std, err := s.getStudent(tx, studentID)
+		if err != nil {
+			return err
 		}
 
-		// Check course that student is enrolled in
+		// Load current enrollments
 		var currentEnrolls []models.Enrollment
-		tx.Preload("Section.Course").Where("student_id = ? AND status = ?", std.StudentID, "enrolled").Find(&currentEnrolls)
+		tx.Preload("Section.Course").
+			Where("student_id = ? AND status = ?", std.StudentID, models.StatusEnrolled).
+			Find(&currentEnrolls)
 
-		// Diff
-		oldMap := make(map[string]models.Enrollment)
+		oldMap := make(map[string]models.Enrollment, len(currentEnrolls))
 		for _, en := range currentEnrolls {
 			oldMap[en.SectionID.String()] = en
 		}
-		newMap := make(map[string]bool)
+		newMap := make(map[string]bool, len(newSids))
 		for _, sid := range newSids {
 			newMap[sid] = true
 		}
 
-		// Check "major permissions" and total credits
+		// Validate new sections and total credits
 		var totalCredits int
 		for _, sidStr := range newSids {
 			var sec models.Section
 			if err := tx.Preload("Course").First(&sec, "id = ?", sidStr).Error; err != nil {
 				return fmt.Errorf("section %s not found", sidStr)
 			}
-
-			// Deadline check
-			if time.Now().After(sec.Deadline) {
-				return fmt.Errorf("Course %s deadline passed", sec.CourseID)
+			if err := checkMajorPermission(sec.Course, std.Major); err != nil {
+				return err
 			}
-
-			// Allowed majors check
-
 			totalCredits += sec.Course.Credits
 		}
 
 		if totalCredits > 22 {
-			return fmt.Errorf("total credits exceeded for major %s", std.Major)
+			return fmt.Errorf("total credits exceed limit: %d (max 22)", totalCredits)
 		}
 
-		// Remove old enrollments that are not in newSids
+		// Remove enrollments no longer in new list
 		for sidStr, en := range oldMap {
 			if !newMap[sidStr] {
-				key := fmt.Sprintf("section:%s:seats", sidStr)
-				s.rdb.Incr(ctx, key)
-
-				// Hard delete
+				s.rdb.Incr(ctx, fmt.Sprintf("section:%s:seats", sidStr))
 				tx.Unscoped().Delete(&en)
-
-				tx.Model(&models.Section{}).Where("id = ?", en.SectionID).Update("enrolled", gorm.Expr("enrolled - 1"))
+				tx.Model(&models.Section{}).Where("id = ?", en.SectionID).
+					Update("enrolled", gorm.Expr("enrolled - 1"))
 			}
 		}
 
+		// Add new enrollments
 		for sidStr := range newMap {
-			// if it's new course, steal a seat
-			if _, exists := oldMap[sidStr]; !exists {
-				key := fmt.Sprintf("section:%s:seats", sidStr)
-
-				remaining, _ := s.rdb.Decr(ctx, key).Result()
-				if remaining < 0 {
-					s.rdb.Incr(ctx, key)
-					return fmt.Errorf("section %s is full", sidStr)
-				}
-
-				// Save to db
-				sid, _ := uuid.Parse(sidStr)
-				var sec models.Section
-				tx.First(&sec, "id = ?", sid)
-				tx.Create(&models.Enrollment{
-					StudentID:    std.StudentID,
-					SectionID:    sid,
-					Status:       "enrolled",
-					Semester:     sec.Semester,
-					AcademicYear: sec.AcademicYear,
-				})
-				tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
+			if _, exists := oldMap[sidStr]; exists {
+				continue
 			}
+
+			key := fmt.Sprintf("section:%s:seats", sidStr)
+			remaining, _ := s.rdb.Decr(ctx, key).Result()
+			if remaining < 0 {
+				s.rdb.Incr(ctx, key)
+				return fmt.Errorf("section %s is full", sidStr)
+			}
+
+			sid, _ := uuid.Parse(sidStr)
+			var sec models.Section
+			tx.First(&sec, "id = ?", sid)
+
+			tx.Create(&models.Enrollment{
+				StudentID:    std.StudentID,
+				SectionID:    sid,
+				Status:       models.StatusEnrolled,
+				Semester:     sec.Semester,
+				AcademicYear: sec.AcademicYear,
+			})
+			tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
 		}
 
 		return nil
 	})
 }
 
-func (s *EnrollService) WithdrawCourse(studentID uuid.UUID, sectionID uuid.UUID) error {
+// ─── Withdraw ───
+
+func (s *EnrollService) WithdrawCourse(studentID uuid.UUID, enrollmentID uuid.UUID) error {
+	if _, err := s.getActivePeriod(); err != nil {
+		return err
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		var std models.Student
-		if err := tx.First(&std, "id = ?", studentID).Error; err != nil {
-			return errors.New("student not found")
-		}
-
-		var en models.Enrollment
-		err := tx.Preload("Section").Where("student_id = ? AND section_id = ? AND status = ?",
-			std.StudentID, sectionID, "enrolled").First(&en).Error
+		std, err := s.getStudent(tx, studentID)
 		if err != nil {
-			return errors.New("No enrollment found that can be withdrawn")
-		}
-
-		// Check before deadline
-		if time.Now().Before(en.Section.Deadline) {
-			return errors.New("Cannot withdraw course before deadline")
-		}
-
-		en.Status = "withdrawn"
-		if err := tx.Save(&en).Error; err != nil {
 			return err
 		}
 
-		return nil
+		var en models.Enrollment
+		if err := tx.Where("id = ? AND student_id = ? AND status = ?",
+			enrollmentID, std.StudentID, models.StatusEnrolled).
+			First(&en).Error; err != nil {
+			return errors.New("enrollment not found or cannot be withdrawn")
+		}
+
+		en.Status = models.StatusWithdrawn
+		return tx.Save(&en).Error
 	})
 }
 
-func (s *EnrollService) GetMyEnrollments(studentID uuid.UUID, mode string) ([]dto.EnrolledCourseResponse, error) {
-	var std models.Student
-	if err := s.db.First(&std, "id = ?", studentID).Error; err != nil {
-		return nil, errors.New("student not found")
-	}
+// ─── History (result registration page) ────
 
-	var enrolls []models.Enrollment
-	query := s.db.Preload("Section.Course").Where("student_id = ?", std.StudentID)
-
-	// cases for UI
-	switch mode {
-	case "active":
-		query = query.Where("status = ?", "enrolled")
-	case "withdrawable":
-		query = query.Where("status = ? AND EXISTS (SELECT 1 FROM sections WHERE sections.id = enrollments.section_id AND sections.deadline < ?)", "enrolled", time.Now())
-	case "all":
-	}
-
-	err := query.Find(&enrolls).Error
+func (s *EnrollService) GetHistory(studentID uuid.UUID, semester, academicYear int) (*dto.EnrollmentHistoryResponse, error) {
+	std, err := s.getStudent(s.db, studentID)
 	if err != nil {
 		return nil, err
 	}
 
-	var res []dto.EnrolledCourseResponse
-	for _, enroll := range enrolls {
-		res = append(res, dto.EnrolledCourseResponse{
-			EnrollmentID:    enroll.ID.String(),
-			CourseID:        enroll.Section.Course.ID,
-			CourseName:      enroll.Section.Course.NameEn,
-			SectionNum:      enroll.Section.SectionNum,
-			Status:          string(enroll.Status),
-			StudyTime:       enroll.Section.StudyTime,
-			Deadline:        enroll.Section.Deadline,
-			Semester:        enroll.Semester,
-			AcademicYear:    enroll.AcademicYear,
-			AttendanceScore: enroll.AttendanceScore,
-			AssignmentScore: enroll.AssignmentScore,
-			MidtermScore:    enroll.MidtermScore,
-			FinalScore:      enroll.FinalScore,
-			TotalScore:      enroll.TotalScore,
-			Grade:           enroll.LetterGrade,
+	query := s.db.Preload("Section.Course").
+		Where("student_id = ?", std.StudentID)
+
+	if semester > 0 {
+		query = query.Where("semester = ?", semester)
+	}
+	if academicYear > 0 {
+		query = query.Where("academic_year = ?", academicYear)
+	}
+
+	var enrolls []models.Enrollment
+	if err := query.Find(&enrolls).Error; err != nil {
+		return nil, err
+	}
+
+	var totalCredits int
+	items := make([]dto.EnrollmentHistoryItem, 0, len(enrolls))
+	for _, en := range enrolls {
+		if en.Status == models.StatusEnrolled || en.Status == models.StatusGraded {
+			totalCredits += en.Section.Course.Credits
+		}
+		items = append(items, dto.EnrollmentHistoryItem{
+			EnrollmentID: en.ID.String(),
+			CourseID:     en.Section.Course.ID,
+			CourseNameTh: en.Section.Course.NameTh,
+			CourseNameEn: en.Section.Course.NameEn,
+			Credits:      en.Section.Course.Credits,
+			SectionNum:   en.Section.SectionNum,
+			Status:       string(en.Status),
+			Semester:     en.Semester,
+			AcademicYear: en.AcademicYear,
+			TotalScore:   en.TotalScore,
+			Grade:        en.LetterGrade,
 		})
 	}
 
-	return res, nil
+	respSemester := semester
+	respYear := academicYear
+	if len(enrolls) > 0 && respSemester == 0 {
+		respSemester = enrolls[0].Semester
+		respYear = enrolls[0].AcademicYear
+	}
+
+	return &dto.EnrollmentHistoryResponse{
+		Semester:     respSemester,
+		AcademicYear: respYear,
+		TotalCredits: totalCredits,
+		Courses:      items,
+	}, nil
+}
+
+// ─── Schedule (Schedule page) ───
+
+func (s *EnrollService) GetSchedule(studentID uuid.UUID, semester, academicYear int) (*dto.TimetableResponse, error) {
+	std, err := s.getStudent(s.db, studentID)
+	if err != nil {
+		return nil, err
+	}
+
+	var enrolls []models.Enrollment
+	if err := s.db.
+		Preload("Section.Course").
+		Preload("Section.Schedules").
+		Where("student_id = ? AND status = ? AND semester = ? AND academic_year = ?",
+			std.StudentID, models.StatusEnrolled, semester, academicYear).
+		Find(&enrolls).Error; err != nil {
+		return nil, err
+	}
+
+	courses := make([]dto.TimetableCourse, 0, len(enrolls))
+	for _, en := range enrolls {
+		courses = append(courses, dto.TimetableCourse{
+			EnrollmentID: en.ID.String(),
+			CourseID:     en.Section.Course.ID,
+			CourseNameTh: en.Section.Course.NameTh,
+			CourseNameEn: en.Section.Course.NameEn,
+			SectionNum:   en.Section.SectionNum,
+			Credits:      en.Section.Course.Credits,
+			Schedules:    mapSchedules(en.Section.Schedules),
+		})
+	}
+
+	return &dto.TimetableResponse{
+		Semester:     semester,
+		AcademicYear: academicYear,
+		Courses:      courses,
+	}, nil
 }

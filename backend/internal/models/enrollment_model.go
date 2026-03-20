@@ -5,10 +5,9 @@ import "github.com/google/uuid"
 type EnrollmentStatus string
 
 const (
-	StatusEnrolled EnrollmentStatus = "enrolled"
-	StatusPending  EnrollmentStatus = "pending"
-	StatusDropped  EnrollmentStatus = "dropped"
-	StatusRejected EnrollmentStatus = "rejected"
+	StatusEnrolled  EnrollmentStatus = "enrolled"
+	StatusWithdrawn EnrollmentStatus = "withdrawn"
+	StatusGraded    EnrollmentStatus = "graded"
 )
 
 type Enrollment struct {

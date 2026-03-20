@@ -62,6 +62,10 @@ func Start(db *gorm.DB, rdb *redis.Client) {
 	enrollService := services.NewEnrollService(db, rdb)
 	enrollHandler := handler.NewEnrollHandler(enrollService)
 
+	// Enrollment Period
+	enrollmentPeriodService := services.NewEnrollmentPeriodService(db)
+	enrollmentPeriodHandler := handler.NewEnrollmentPeriodHandler(enrollmentPeriodService)
+
 	// Grade
 	gradeService := services.NewGradeService(db)
 	gradeHandler := handler.NewGradeHandler(gradeService)
@@ -76,12 +80,13 @@ func Start(db *gorm.DB, rdb *redis.Client) {
 	})
 
 	routes.Register(app, &routes.Handlers{
-		Auth:   authHandler,
-		User:   userHandler,
-		Course: courseHandler,
-		Enroll: enrollHandler,
-		Grade:  gradeHandler,
-		Import: importHandler,
+		Auth:             authHandler,
+		User:             userHandler,
+		Course:           courseHandler,
+		Enroll:           enrollHandler,
+		Grade:            gradeHandler,
+		Import:           importHandler,
+		EnrollmentPeriod: enrollmentPeriodHandler,
 	})
 
 	// Graceful shutdown

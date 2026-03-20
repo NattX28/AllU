@@ -29,25 +29,6 @@ type StudentDetail struct {
 	GPAX      float64 `json:"gpax"`
 }
 
-type EnrolledCourseResponse struct {
-	EnrollmentID string    `json:"enrollment_id"`
-	CourseID     string    `json:"course_id"` // ex. CPE101
-	CourseName   string    `json:"course_name"`
-	SectionNum   int       `json:"section_num"`
-	Status       string    `json:"status"` // enrolled, dropped, graded
-	StudyTime    string    `json:"study_time"`
-	Deadline     time.Time `json:"deadline"`
-	Semester     int       `json:"semester"`
-	AcademicYear int       `json:"academic_year"`
-
-	FinalScore      *float64 `json:"final_score,omitempty"`
-	MidtermScore    *float64 `json:"midterm_score,omitempty"`
-	AttendanceScore *float64 `json:"attendance_score,omitempty"`
-	AssignmentScore *float64 `json:"assignment_score,omitempty"`
-	TotalScore      float64  `json:"total_score,omitempty"`
-	Grade           string   `json:"grade"`
-}
-
 type ProfessorDetail struct {
 	ProfessorID string `json:"professor_id"`
 	Faculty     string `json:"faculty"`
@@ -57,13 +38,31 @@ type ProfessorDetail struct {
 	Gender      string `json:"gender"`
 }
 
+// EnrolledCourseResponse for grade page (viewing score/grade)
+type EnrolledCourseResponse struct {
+	EnrollmentID string `json:"enrollment_id"`
+	CourseID     string `json:"course_id"`
+	CourseName   string `json:"course_name"`
+	Credits      int    `json:"credits"`
+	SectionNum   int    `json:"section_num"`
+	Status       string `json:"status"`
+	Semester     int    `json:"semester"`
+	AcademicYear int    `json:"academic_year"`
+
+	AttendanceScore *float64 `json:"attendance_score,omitempty"`
+	AssignmentScore *float64 `json:"assignment_score,omitempty"`
+	MidtermScore    *float64 `json:"midterm_score,omitempty"`
+	FinalScore      *float64 `json:"final_score,omitempty"`
+	TotalScore      float64  `json:"total_score,omitempty"`
+	Grade           string   `json:"grade"`
+}
+
 type UpdateMeRequest struct {
 	Name     *string    `json:"name"`
 	Birthday *time.Time `json:"birthday"`
 	Address  *string    `json:"address"`
 	Gender   *string    `json:"gender"`
 
-	// specific fields
 	Year    *int    `json:"year,omitempty"`
 	Faculty *string `json:"faculty,omitempty"`
 	Major   *string `json:"major,omitempty"`
@@ -103,7 +102,6 @@ type CreateUserRequest struct {
 	Birthday time.Time   `json:"birthday" validate:"required"`
 	Gender   string      `json:"gender" validate:"required"`
 
-	// Account status
 	IsActive           *bool `json:"is_active"`
 	MustChangePassword *bool `json:"must_change_password"`
 
@@ -120,7 +118,6 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserAdminRequest struct {
-	// Basic data
 	Name               *string      `json:"name"`
 	Role               *models.Role `json:"role"`
 	IsActive           *bool        `json:"is_active"`
@@ -129,15 +126,15 @@ type UpdateUserAdminRequest struct {
 	Birthday           *time.Time   `json:"birthday"`
 	Gender             *string      `json:"gender"`
 
-	// Student fields
+	// Student
 	StudentID *string  `json:"student_id"`
 	EntryYear *int     `json:"entry_year"`
 	Year      *int     `json:"year"`
 	Faculty   *string  `json:"faculty"`
 	Major     *string  `json:"major"`
-	GPAX      *float64 `json:"gpax"` // Special case
+	GPAX      *float64 `json:"gpax"`
 
-	// Professor fields
+	// Professor
 	ProfessorID *string `json:"professor_id"`
 	Department  *string `json:"department"`
 }

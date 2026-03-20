@@ -37,13 +37,15 @@ func ConnectDataBase() *gorm.DB {
 
 func AutoMigrate(db *gorm.DB) {
 	err := db.AutoMigrate(
-		&models.User{},
-		&models.Course{},
-		&models.Student{},
-		&models.Professor{},
-		&models.Section{},
-		&models.Enrollment{},
-		&models.RefreshToken{},
+		&models.User{},             // No FK
+		&models.Course{},           // No FK
+		&models.Student{},          // FK → User
+		&models.Professor{},        // FK → User
+		&models.RefreshToken{},     // FK → User
+		&models.Section{},          // FK → Course, Professor
+		&models.SectionSchedule{},  // FK → Section
+		&models.EnrollmentPeriod{}, // No FK
+		&models.Enrollment{},       // FK → Student, Section
 	)
 	if err != nil {
 		log.Fatal("Failed to auto migrate: ", err)
