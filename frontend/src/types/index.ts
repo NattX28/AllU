@@ -127,7 +127,6 @@ export interface UpdateUserAdminRequest {
   department?: string;
 }
 
-// Updated: removed study_time & deadline, added credits
 export interface EnrolledCourseResponse {
   enrollment_id: string;
   course_id: string;
@@ -152,17 +151,15 @@ export interface PrereqResponse {
   name_th: string;
 }
 
-// New: schedule slot replacing study_time
 export interface SectionSchedule {
   id: string;
   day: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
-  start_time: string; // "09:00"
-  end_time: string; // "12:00"
+  start_time: string;
+  end_time: string;
   room: string;
   type: "LECTURE" | "LAB";
 }
 
-// Updated: removed study_time, added schedules
 export interface SectionResponse {
   id: string;
   section_num: number;
@@ -343,6 +340,29 @@ export interface ClassListResponse {
   section_num: number;
   total_student: number;
   students: StudentGradeItem[];
+}
+
+/** บันทึกคะแนนย่อย — ยังไม่ตัดเกรด */
+export interface SaveScoresRequest {
+  section_id: string;
+  grades: StudentGradeItem[];
+}
+
+/**
+ * ตัดเกรด
+ * - commit_all: true  → ตัดทั้งห้อง (ไม่ต้องส่ง enrollment_ids)
+ * - commit_all: false → ตัดเฉพาะ enrollment_ids ที่ส่งมา
+ */
+export interface CommitGradeRequest {
+  section_id: string;
+  commit_all: boolean;
+  enrollment_ids?: string[];
+}
+
+export interface CommitGradeResponse {
+  committed: number;
+  skipped: number;
+  message: string;
 }
 
 export interface GradeDetails {
