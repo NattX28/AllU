@@ -88,6 +88,7 @@ type CourseResponse struct {
 	NameTh   string            `json:"name_th"`
 	NameEn   string            `json:"name_en"`
 	Credits  int               `json:"credits"`
+	Category string            `json:"category"`
 	Sections []SectionResponse `json:"sections"`
 }
 

@@ -201,10 +201,11 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 			return err
 		}
 
-		// Load current enrollments
+		// Load current enrollments (enrolled + graded — both count as "active")
 		var currentEnrolls []models.Enrollment
 		tx.Preload("Section.Course").
-			Where("student_id = ? AND status = ?", std.StudentID, models.StatusEnrolled).
+			Where("student_id = ? AND status IN ?", std.StudentID,
+				[]models.EnrollmentStatus{models.StatusEnrolled, models.StatusGraded}).
 			Find(&currentEnrolls)
 
 		oldMap := make(map[string]models.Enrollment, len(currentEnrolls))
@@ -374,7 +375,7 @@ func (s *EnrollService) GetSchedule(studentID uuid.UUID, semester, academicYear 
 	if err := s.db.
 		Preload("Section.Course").
 		Preload("Section.Schedules").
-		Where("student_id = ? AND status IN = ? AND semester = ? AND academic_year = ?",
+		Where("student_id = ? AND status IN ? AND semester = ? AND academic_year = ?",
 			std.StudentID, []models.EnrollmentStatus{models.StatusEnrolled, models.StatusGraded}, semester, academicYear).
 		Find(&enrolls).Error; err != nil {
 		return nil, err
@@ -385,10 +386,12 @@ func (s *EnrollService) GetSchedule(studentID uuid.UUID, semester, academicYear 
 		courses = append(courses, dto.TimetableCourse{
 			EnrollmentID: en.ID.String(),
 			CourseID:     en.Section.Course.ID,
+			SectionID:    en.Section.ID.String(),
 			CourseNameTh: en.Section.Course.NameTh,
 			CourseNameEn: en.Section.Course.NameEn,
 			SectionNum:   en.Section.SectionNum,
 			Credits:      en.Section.Course.Credits,
+			Status:       string(en.Status),
 			Schedules:    mapSchedules(en.Section.Schedules),
 		})
 	}

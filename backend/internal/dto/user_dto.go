@@ -30,6 +30,7 @@ type StudentDetail struct {
 }
 
 type ProfessorDetail struct {
+	ProfileID   string `json:"profile_id"` // professors.id UUID — ใช้สำหรับ CreateSection
 	ProfessorID string `json:"professor_id"`
 	Faculty     string `json:"faculty"`
 	Department  string `json:"department"`

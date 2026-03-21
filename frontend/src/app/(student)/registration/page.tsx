@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { courseService } from "@/services/courseService";
 import { enrollService } from "@/services/enrollService";
+import { userService } from "@/services/userService";
 import type {
   CourseResponse,
   SectionResponse,
   CheckSeatsResponse,
   EnrollmentPeriodResponse,
   TimetableResponse,
+  GetMeResponse,
 } from "@/types";
 import ProtectedLayout from "@/components/layout/ProtectedLayout";
 import {
@@ -64,6 +66,7 @@ export default function RegistrationPage() {
   );
 
   // Registration state
+  const [me, setMe] = useState<GetMeResponse | null>(null);
   const [courses, setCourses] = useState<CourseResponse[]>([]);
   const [schedule, setSchedule] = useState<TimetableResponse | null>(null);
   const [search, setSearch] = useState("");
@@ -93,12 +96,14 @@ export default function RegistrationPage() {
   // ── Step 2: Load courses & current schedule (only when period is active) ──
   const loadRegistrationData = useCallback(
     async (p: EnrollmentPeriodResponse) => {
-      const [allCourses, currentSchedule] = await Promise.all([
+      const [allCourses, currentSchedule, meData] = await Promise.all([
         courseService.getAll(),
         enrollService.getSchedule(p.semester, p.academic_year),
+        userService.getMe(),
       ]);
       setCourses(allCourses);
       setSchedule(currentSchedule);
+      setMe(meData);
     },
     [],
   );
@@ -138,7 +143,9 @@ export default function RegistrationPage() {
   );
 
   const addToCart = (course: CourseResponse, section: SectionResponse) => {
+    // ป้องกันเพิ่ม section ซ้ำ หรือเพิ่มวิชาเดียวกันคนละ section
     if (cart.find((c) => c.section.id === section.id)) return;
+    if (cart.find((c) => c.course.id === course.id)) return;
     setCart((prev) => [...prev, { course, section }]);
   };
   const removeFromCart = (sectionId: string) =>
@@ -175,7 +182,16 @@ export default function RegistrationPage() {
           `✅ ลงทะเบียนสำเร็จ ${res.enrolled_ids.length} วิชา (${res.total_credits} หน่วยกิต)`,
         );
       } else {
-        await enrollService.update(cart.map((c) => c.section.id));
+        // ส่ง section_id ของวิชาที่มีอยู่แล้ว (enrolled เท่านั้น ไม่รวม graded)
+        // รวมกับ cart ใหม่ — backend จะ diff เองว่าอะไรเพิ่ม/ลบ
+        const existingSectionIds = (schedule?.courses ?? [])
+          .filter((c) => c.status === "enrolled")
+          .map((c) => c.section_id);
+        const newSectionIds = cart.map((c) => c.section.id);
+        const mergedIds = [
+          ...new Set([...existingSectionIds, ...newSectionIds]),
+        ];
+        await enrollService.update(mergedIds);
         setConfirmResult("✅ อัปเดตการลงทะเบียนสำเร็จ");
       }
       setCart([]);
@@ -194,13 +210,32 @@ export default function RegistrationPage() {
     }
   };
 
-  // Only show courses that have at least one section in the active period
-  const periodCourses = courses.filter((c) =>
-    c.sections?.some(
-      (s) =>
-        s.semester === period?.semester &&
-        s.academic_year === period?.academic_year,
-    ),
+  // ── Course filtering ──
+  const major = me?.student?.major ?? "";
+
+  // Helper: same logic as backend checkMajorPermission
+  const isCourseAllowed = (course: CourseResponse): boolean => {
+    const cat = course.category?.toLowerCase() ?? "";
+    // elective และ gened เปิดให้ทุกคน
+    if (cat === "elective" || cat === "gened") return true;
+    // major course — ชื่อวิชาต้องลงท้ายด้วย abbr ของ major
+    if (!major) return true; // ยังไม่โหลด me → แสดงไว้ก่อน
+    const abbr = major
+      .split(" ")
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("");
+    return course.name_en.trimEnd().endsWith(abbr);
+  };
+
+  // Only show courses that have at least one section in the active period AND allowed for this major
+  const periodCourses = courses.filter(
+    (c) =>
+      isCourseAllowed(c) &&
+      c.sections?.some(
+        (s) =>
+          s.semester === period?.semester &&
+          s.academic_year === period?.academic_year,
+      ),
   );
 
   const filtered = periodCourses.filter(
@@ -354,6 +389,10 @@ export default function RegistrationPage() {
                           const inCart = cart.some(
                             (c) => c.section.id === sec.id,
                           );
+                          // วิชาเดียวกันอยู่ใน cart แล้ว (คนละ section)
+                          const courseInCart =
+                            !inCart &&
+                            cart.some((c) => c.course.id === course.id);
                           // Show schedule summary
                           const scheduleStr = sec.schedules
                             .map(
@@ -390,12 +429,15 @@ export default function RegistrationPage() {
                                 size="sm"
                                 variant={inCart ? "secondary" : "default"}
                                 className={`h-7 text-[11px] ml-3 shrink-0 ${
-                                  !inCart
+                                  !inCart && !courseInCart && !isEnrolled
                                     ? "bg-[#AC3520] hover:bg-[#922d1a] text-white"
                                     : ""
                                 }`}
                                 disabled={
-                                  inCart || sec.available === 0 || isEnrolled
+                                  inCart ||
+                                  courseInCart ||
+                                  sec.available === 0 ||
+                                  isEnrolled
                                 }
                                 onClick={() => addToCart(course, sec)}
                               >
@@ -403,6 +445,8 @@ export default function RegistrationPage() {
                                   "อยู่ในตะกร้า"
                                 ) : isEnrolled ? (
                                   "ลงแล้ว"
+                                ) : courseInCart ? (
+                                  "เลือก Sec อื่นแล้ว"
                                 ) : (
                                   <>
                                     <Plus size={12} className="mr-1" />

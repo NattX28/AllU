@@ -96,14 +96,14 @@ func (h *EnrollHandler) Withdraw(c fiber.Ctx) error {
 		})
 	}
 
-	var req dto.WithdrawRequest
-	if err := c.Bind().Body(&req); err != nil {
+	enrollmentIDStr := c.Query("enrollment_id")
+	if enrollmentIDStr == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "failed to parse request body",
+			"error": "enrollment_id query parameter is required",
 		})
 	}
 
-	enrollmentID, err := uuid.Parse(req.EnrollmentID)
+	enrollmentID, err := uuid.Parse(enrollmentIDStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "invalid enrollment_id",

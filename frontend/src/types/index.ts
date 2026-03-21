@@ -1,6 +1,6 @@
 export type Role = "student" | "professor" | "admin";
 
-// ─── Auth ───
+// ─── Auth ────────────────────────────────────────────────────
 export interface LoginRequest {
   username: string;
   password: string;
@@ -19,7 +19,7 @@ export interface AuthState {
   profileID: string | null;
 }
 
-// ─── User ────
+// ─── User ────────────────────────────────────────────────────
 export interface StudentDetail {
   student_id: string;
   entry_year: number;
@@ -33,6 +33,7 @@ export interface StudentDetail {
 }
 
 export interface ProfessorDetail {
+  profile_id: string;
   professor_id: string;
   faculty: string;
   department: string;
@@ -144,7 +145,7 @@ export interface EnrolledCourseResponse {
   grade: string;
 }
 
-// ─── Course ───
+// ─── Course ──────────────────────────────────────────────────
 export interface PrereqResponse {
   id: string;
   name_en: string;
@@ -178,6 +179,7 @@ export interface CourseResponse {
   name_th: string;
   name_en: string;
   credits: number;
+  category: string;
   sections: SectionResponse[];
 }
 
@@ -246,7 +248,7 @@ export interface UpdateSectionRequest {
   }>;
 }
 
-// ─── Enroll ───
+// ─── Enroll ──────────────────────────────────────────────────
 export interface CheckSeatsResponse {
   section_id: string;
   available: number;
@@ -259,14 +261,16 @@ export interface ConfirmEnrollResponse {
   total_credits: number;
 }
 
-// ─── Timetable ────
+// ─── Timetable ───────────────────────────────────────────────
 export interface TimetableCourse {
   enrollment_id: string;
   course_id: string;
+  section_id: string;
   course_name_th: string;
   course_name_en: string;
   section_num: number;
   credits: number;
+  status: string;
   schedules: SectionSchedule[];
 }
 
@@ -276,7 +280,7 @@ export interface TimetableResponse {
   courses: TimetableCourse[];
 }
 
-// ─── Enrollment History ───
+// ─── Enrollment History ──────────────────────────────────────
 export interface EnrollmentHistoryItem {
   enrollment_id: string;
   course_id: string;
@@ -287,10 +291,6 @@ export interface EnrollmentHistoryItem {
   status: string;
   semester: number;
   academic_year: number;
-  attendance_score?: number;
-  assignment_score?: number;
-  midterm_score?: number;
-  final_score?: number;
   total_score: number;
   grade: string;
 }
@@ -302,7 +302,7 @@ export interface EnrollmentHistoryResponse {
   courses: EnrollmentHistoryItem[];
 }
 
-// ─── Enrollment Period ───
+// ─── Enrollment Period ───────────────────────────────────────
 export interface EnrollmentPeriodResponse {
   id: string;
   semester: number;
@@ -312,7 +312,7 @@ export interface EnrollmentPeriodResponse {
   is_active: boolean;
 }
 
-// ─── Grade ───
+// ─── Grade ───────────────────────────────────────────────────
 export interface ProfessorSectionResponse {
   section_id: string;
   course_id: string;

@@ -44,7 +44,6 @@ type EnrollmentHistoryItem struct {
 	Status          string   `json:"status"`
 	Semester        int      `json:"semester"`
 	AcademicYear    int      `json:"academic_year"`
-	AssignScore     float64  `json:"assign_score"`
 	AttendanceScore *float64 `json:"attendance_score,omitempty"`
 	AssignmentScore *float64 `json:"assignment_score,omitempty"`
 	MidtermScore    *float64 `json:"midterm_score,omitempty"`
@@ -73,10 +72,12 @@ type ScheduleSlot struct {
 type TimetableCourse struct {
 	EnrollmentID string         `json:"enrollment_id"`
 	CourseID     string         `json:"course_id"`
+	SectionID    string         `json:"section_id"` // ← เพิ่มใหม่
 	CourseNameTh string         `json:"course_name_th"`
 	CourseNameEn string         `json:"course_name_en"`
 	SectionNum   int            `json:"section_num"`
 	Credits      int            `json:"credits"`
+	Status       string         `json:"status"` // ← เพิ่มใหม่: "enrolled" | "graded"
 	Schedules    []ScheduleSlot `json:"schedules"`
 }
 

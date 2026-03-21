@@ -8,7 +8,7 @@ import type {
 } from "@/types";
 
 export const enrollService = {
-  // ─── Seat Check ────
+  // ─── Seat Check ──────────────────────────────────────────
   checkSeats: (sectionIds: string[]) =>
     api
       .get<CheckSeatsResponse[]>("/enroll/check-seats", {
@@ -16,7 +16,7 @@ export const enrollService = {
       })
       .then((r) => r.data),
 
-  // ─── Confirm (first time) ───
+  // ─── Confirm (first time) ────────────────────────────────
   confirm: (sectionIds: string[]) =>
     api
       .post<ConfirmEnrollResponse>("/enroll/confirm", {
@@ -24,19 +24,19 @@ export const enrollService = {
       })
       .then((r) => r.data),
 
-  // ─── Update (already confirmed) ───
+  // ─── Update (already confirmed) ──────────────────────────
   update: (sectionIds: string[]) =>
     api
       .patch("/enroll/update", { section_ids: sectionIds })
       .then((r) => r.data),
 
-  // ─── Withdraw (by enrollment_id) ──
+  // ─── Withdraw (by enrollment_id) ─────────────────────────
   withdraw: (enrollmentId: string) =>
     api
-      .delete("/enroll/withdraw", { data: { enrollment_id: enrollmentId } })
+      .delete("/enroll/withdraw", { params: { enrollment_id: enrollmentId } })
       .then((r) => r.data),
 
-  // ─── Active Enrollment Period ────
+  // ─── Active Enrollment Period ─────────────────────────────
   getActivePeriod: (): Promise<EnrollmentPeriodResponse | null> =>
     api
       .get<{
@@ -44,7 +44,7 @@ export const enrollService = {
       }>("/enrollment-period/active")
       .then((r) => r.data.data),
 
-  // ─── Timetable (schedule page) ───
+  // ─── Timetable (schedule page) ────────────────────────────
   getSchedule: (
     semester: number,
     academicYear: number,
@@ -55,7 +55,7 @@ export const enrollService = {
       })
       .then((r) => r.data),
 
-  // ─── History (grades/registration result page) ────
+  // ─── History (grades/registration result page) ────────────
   getHistory: (
     semester?: number,
     academicYear?: number,

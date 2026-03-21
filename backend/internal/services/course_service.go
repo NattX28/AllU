@@ -258,6 +258,7 @@ func (s *CourseService) GetAllCourses() ([]dto.CourseResponse, error) {
 			NameTh:   c.NameTh,
 			NameEn:   c.NameEn,
 			Credits:  c.Credits,
+			Category: string(c.Category),
 			Sections: s.mapSections(ctx, c.Sections),
 		})
 	}
