@@ -12,23 +12,42 @@ type ProfessorSectionResponse struct {
 	AcademicYear int       `json:"academic_year"`
 }
 
+// StudentGradeItem ใช้ทั้งรับและส่งข้อมูล
+// - AttendanceScore: 0–10, AssignmentScore: 0–20, MidtermScore: 0–30, FinalScore: 0–40
+// - TotalScore: backend คำนวณเอง ไม่ validate max เพราะ frontend ส่ง 0 มาตอน save
+// - Grade, Status: backend set เอง
 type StudentGradeItem struct {
 	EnrollmentID    uuid.UUID `json:"enrollment_id"`
-	StudentID       string    `json:"student_id"` // ex. 66040626...
+	StudentID       string    `json:"student_id"`
 	StudentName     string    `json:"student_name"`
-	AttendanceScore *float64  `json:"attendance_score" validate:"omitempty,min=0,max=100"`
-	AssignmentScore *float64  `json:"assignment_score" validate:"omitempty,min=0,max=100"`
-	MidtermScore    *float64  `json:"midterm_score"    validate:"omitempty,min=0,max=100"`
-	FinalScore      *float64  `json:"final_score"      validate:"omitempty,min=0,max=100"`
-	TotalScore      float64   `json:"total_score"      validate:"min=0,max=100"`
-	Grade           string    `json:"grade"            validate:"omitempty,oneof=A B+ B C+ C D+ D F I W"`
+	AttendanceScore *float64  `json:"attendance_score"`
+	AssignmentScore *float64  `json:"assignment_score"`
+	MidtermScore    *float64  `json:"midterm_score"`
+	FinalScore      *float64  `json:"final_score"`
+	TotalScore      float64   `json:"total_score"`
+	Grade           string    `json:"grade"`
 	Status          string    `json:"status"`
 }
 
-// For entering scores
-type SubmitGradeRequest struct {
+// SaveScoresRequest — บันทึกคะแนนย่อย ยังไม่ตัดเกรด
+type SaveScoresRequest struct {
 	SectionID uuid.UUID          `json:"section_id" validate:"required"`
-	Grades    []StudentGradeItem `json:"grades" validate:"required,dive"`
+	Grades    []StudentGradeItem `json:"grades"     validate:"required,dive"`
+}
+
+// CommitGradeRequest — ตัดเกรด
+// CommitAll=true  → ทั้งห้อง
+// CommitAll=false → เฉพาะ EnrollmentIDs
+type CommitGradeRequest struct {
+	SectionID     uuid.UUID   `json:"section_id"    validate:"required"`
+	CommitAll     bool        `json:"commit_all"`
+	EnrollmentIDs []uuid.UUID `json:"enrollment_ids"`
+}
+
+type CommitGradeResponse struct {
+	Committed int    `json:"committed"`
+	Skipped   int    `json:"skipped"`
+	Message   string `json:"message"`
 }
 
 type ClassListResponse struct {
@@ -62,4 +81,10 @@ type MyGradesResponse struct {
 	TermGPA      float64        `json:"term_gpa"`
 	TotalCredits int            `json:"total_credits"`
 	Courses      []GradeDetails `json:"courses"`
+}
+
+// SubmitGradeRequest — deprecated
+type SubmitGradeRequest struct {
+	SectionID uuid.UUID          `json:"section_id" validate:"required"`
+	Grades    []StudentGradeItem `json:"grades"     validate:"required,dive"`
 }
