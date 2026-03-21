@@ -31,38 +31,73 @@ export default function ProtectedLayout({
 
   useEffect(() => {
     if (isLoading) return;
-
-    // ไม่มี role = ยังไม่ login
     if (!role) {
-      router.replace("/login");
+      router.replace(
+        `/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`,
+      );
       return;
     }
-
-    // role ไม่ตรงกับที่ page นี้อนุญาต
     if (allowedRoles && !allowedRoles.includes(role)) {
       router.replace(ROLE_HOME[role] ?? "/login");
     }
   }, [isLoading, role, allowedRoles, router]);
 
-  // ── Loading state: รอ auth เสร็จก่อน render ──
+  // ── Loading state ──
   if (isLoading || !role) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="flex flex-col items-center gap-3 text-slate-400">
-          <div className="w-8 h-8 border-2 border-slate-200 border-t-[#AC3520] rounded-full animate-spin" />
-          <p className="text-[13px]">กำลังโหลด...</p>
+      <div className="flex min-h-screen items-center justify-center mesh-bg">
+        <div className="flex flex-col items-center gap-4">
+          {/* Animated shield logo */}
+          <div
+            className="relative flex items-center justify-center w-14 h-14 rounded-[16px]"
+            style={{
+              background: "linear-gradient(135deg, #AC3520, #c94030)",
+              boxShadow: "0 4px 20px rgba(172,53,32,0.35)",
+            }}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"
+                fill="rgba(255,255,255,0.9)"
+              />
+              <path
+                d="M9 12l2 2 4-4"
+                stroke="#AC3520"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {/* Spinning ring */}
+            <div
+              className="absolute inset-0 rounded-[16px] border-2 border-transparent animate-spin"
+              style={{
+                borderTopColor: "rgba(255,255,255,0.5)",
+                animationDuration: "1.2s",
+              }}
+            />
+          </div>
+          <p
+            className="text-[13px] font-medium"
+            style={{
+              color: "var(--muted-foreground)",
+              fontFamily: "'Sarabun', sans-serif",
+            }}
+          >
+            กำลังโหลด...
+          </p>
         </div>
       </div>
     );
   }
 
-  // ── Role ไม่ตรง: ไม่ render อะไรเลย (useEffect จะ redirect) ──
+  // ── Role ไม่ตรง ──
   if (allowedRoles && !allowedRoles.includes(role)) {
     return null;
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="flex min-h-screen mesh-bg">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title={title} subtitle={subtitle} />

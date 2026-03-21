@@ -1,4 +1,3 @@
-// ─── dashboard/page.tsx ───────────────────────────────────────────────────────
 "use client";
 
 import { useEffect, useState } from "react";
@@ -8,90 +7,176 @@ import type {
   GetMeResponse,
   TimetableResponse,
   TimetableCourse,
-  SectionSchedule,
 } from "@/types";
 import ProtectedLayout from "@/components/layout/ProtectedLayout";
-import { GraduationCap, BookOpen, CalendarDays } from "lucide-react";
+import { GraduationCap, BookOpen, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-// ─── Constants ───────────────────────────────────────────────
+// ── row = day, col = time ─────────────────────────────────────
 const DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI"] as const;
-const DAY_LABEL: Record<string, string> = {
+type Day = (typeof DAY_ORDER)[number];
+const DAY_SHORT: Record<Day, string> = {
+  MON: "จ",
+  TUE: "อ",
+  WED: "พ",
+  THU: "พฤ",
+  FRI: "ศ",
+};
+const DAY_LABEL: Record<Day, string> = {
   MON: "จันทร์",
   TUE: "อังคาร",
   WED: "พุธ",
   THU: "พฤหัสบดี",
   FRI: "ศุกร์",
 };
-const HOURS = Array.from({ length: 10 }, (_, i) => i + 8); // 08:00–17:00
 
-const COLORS = [
-  "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700",
-  "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-700",
-  "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/30 dark:text-violet-200 dark:border-violet-700",
-  "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700",
-  "bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900/30 dark:text-pink-200 dark:border-pink-700",
+const START_HOUR = 8;
+const END_HOUR = 18;
+const HOURS = Array.from(
+  { length: END_HOUR - START_HOUR },
+  (_, i) => START_HOUR + i,
+);
+const COL_W = 56;
+
+const PALETTE = [
+  {
+    grad: "linear-gradient(135deg,#3b82f6,#60a5fa)",
+    glow: "rgba(59,130,246,0.3)",
+    border: "rgba(59,130,246,0.35)",
+    shine: "rgba(147,197,253,0.25)",
+  },
+  {
+    grad: "linear-gradient(135deg,#10b981,#34d399)",
+    glow: "rgba(16,185,129,0.3)",
+    border: "rgba(16,185,129,0.35)",
+    shine: "rgba(110,231,183,0.25)",
+  },
+  {
+    grad: "linear-gradient(135deg,#8b5cf6,#a78bfa)",
+    glow: "rgba(139,92,246,0.3)",
+    border: "rgba(139,92,246,0.35)",
+    shine: "rgba(196,181,253,0.25)",
+  },
+  {
+    grad: "linear-gradient(135deg,#f59e0b,#fbbf24)",
+    glow: "rgba(245,158,11,0.3)",
+    border: "rgba(245,158,11,0.35)",
+    shine: "rgba(252,211,77,0.25)",
+  },
+  {
+    grad: "linear-gradient(135deg,#ec4899,#f472b6)",
+    glow: "rgba(236,72,153,0.3)",
+    border: "rgba(236,72,153,0.35)",
+    shine: "rgba(249,168,212,0.25)",
+  },
 ];
 
-// ─── Helpers ─────────────────────────────────────────────────
-function parseHour(time: string): number {
-  return parseInt(time.split(":")[0], 10);
-}
-
-interface TimetableEntry {
+interface SlotEntry {
   course: TimetableCourse;
-  schedule: SectionSchedule;
-  day: number; // 0=MON … 4=FRI
   startHour: number;
   endHour: number;
-  colorClass: string;
+  colorIdx: number;
 }
+type Cell = SlotEntry | "SPAN" | null;
 
-function buildEntries(timetable: TimetableResponse): TimetableEntry[] {
-  const entries: TimetableEntry[] = [];
-  timetable.courses.forEach((course, courseIdx) => {
+function buildGrid(tt: TimetableResponse): Record<Day, Cell[]> {
+  const grid = Object.fromEntries(
+    DAY_ORDER.map((d) => [d, Array<Cell>(HOURS.length).fill(null)]),
+  ) as Record<Day, Cell[]>;
+  tt.courses.forEach((course, idx) => {
     course.schedules.forEach((sch) => {
-      const dayIdx = DAY_ORDER.indexOf(sch.day as (typeof DAY_ORDER)[number]);
-      if (dayIdx === -1) return; // SAT/SUN — skip in dashboard mini-grid
-      entries.push({
+      const day = sch.day as Day;
+      if (!grid[day]) return;
+      const si = parseInt(sch.start_time.split(":")[0], 10) - START_HOUR;
+      const ei = parseInt(sch.end_time.split(":")[0], 10) - START_HOUR;
+      if (si < 0 || si >= HOURS.length) return;
+      grid[day][si] = {
         course,
-        schedule: sch,
-        day: dayIdx,
-        startHour: parseHour(sch.start_time),
-        endHour: parseHour(sch.end_time),
-        colorClass: COLORS[courseIdx % COLORS.length],
-      });
+        startHour: si + START_HOUR,
+        endHour: ei + START_HOUR,
+        colorIdx: idx,
+      };
+      for (let i = si + 1; i < ei && i < HOURS.length; i++)
+        grid[day][i] = "SPAN";
     });
   });
-  return entries;
+  return grid;
 }
 
-// ─── Sub-components ──────────────────────────────────────────
 function InfoCard({
   icon,
   label,
   value,
+  accent,
+  delay = 0,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
+  accent: string;
+  delay?: number;
 }) {
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 px-5 py-4 flex items-center gap-4 shadow-sm">
-      <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
-        {icon}
-      </div>
-      <div>
-        <p className="text-[12px] text-slate-400">{label}</p>
-        <p className="text-[15px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
-          {value}
-        </p>
+    <div
+      className="relative rounded-[20px] p-5 overflow-hidden fade-up"
+      style={{
+        animationDelay: `${delay}ms`,
+        background: "var(--glass-bg)",
+        backdropFilter: "blur(16px) saturate(160%)",
+        WebkitBackdropFilter: "blur(16px) saturate(160%)",
+        border: "1px solid var(--glass-border-subtle)",
+        boxShadow: "var(--glass-shadow)",
+        transition: "transform .2s, box-shadow .2s",
+        cursor: "default",
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget as HTMLDivElement;
+        el.style.transform = "translateY(-2px)";
+        el.style.boxShadow = "var(--glass-shadow-lg)";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLDivElement;
+        el.style.transform = "";
+        el.style.boxShadow = "var(--glass-shadow)";
+      }}
+    >
+      <div
+        className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-20 -translate-y-8 translate-x-8"
+        style={{ background: accent, filter: "blur(24px)" }}
+      />
+      <div className="relative z-10 flex items-center gap-4">
+        <div
+          className="w-11 h-11 rounded-[14px] flex items-center justify-center shrink-0"
+          style={{ background: `${accent}15`, border: `1px solid ${accent}25` }}
+        >
+          {icon}
+        </div>
+        <div>
+          <p
+            className="text-[11px] font-semibold uppercase tracking-wider mb-0.5"
+            style={{
+              color: "var(--muted-foreground)",
+              letterSpacing: "0.06em",
+            }}
+          >
+            {label}
+          </p>
+          <p
+            className="text-[20px] font-bold leading-tight"
+            style={{
+              fontFamily: "var(--font-dm-sans,'DM Sans',sans-serif)",
+              letterSpacing: "-0.02em",
+              color: "var(--foreground)",
+            }}
+          >
+            {value}
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Page ────────────────────────────────────────────────────
 export default function StudentDashboard() {
   const { accessToken, isLoading } = useAuth();
   const [me, setMe] = useState<GetMeResponse | null>(null);
@@ -99,35 +184,30 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (isLoading || !accessToken) return;
-
     const load = async () => {
       try {
-        // Load profile and active period in parallel
         const [meData, period] = await Promise.all([
           userService.getMe(),
           enrollService.getActivePeriod(),
         ]);
         setMe(meData);
-
-        // Only fetch schedule if there's an active period
-        if (period) {
-          const schedule = await enrollService.getSchedule(
-            period.semester,
-            period.academic_year,
+        if (period)
+          setTimetable(
+            await enrollService.getSchedule(
+              period.semester,
+              period.academic_year,
+            ),
           );
-          setTimetable(schedule);
-        }
       } catch (err) {
         console.error(err);
       }
     };
-
     load();
   }, [isLoading, accessToken]);
 
-  const entries = timetable ? buildEntries(timetable) : [];
-  const enrolledCourses = timetable?.courses ?? [];
-  const totalCredits = enrolledCourses.reduce((sum, c) => sum + c.credits, 0);
+  const courses = timetable?.courses ?? [];
+  const totalCredits = courses.reduce((s, c) => s + c.credits, 0);
+  const grid = timetable ? buildGrid(timetable) : null;
 
   return (
     <ProtectedLayout
@@ -135,105 +215,289 @@ export default function StudentDashboard() {
       subtitle={`ยินดีต้อนรับ, ${me?.name ?? "—"}`}
       allowedRoles={["student"]}
     >
-      <main className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* ── Info Cards ── */}
+      <main className="flex-1 overflow-y-auto p-6 space-y-5 scrollbar-thin">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <InfoCard
-            icon={<GraduationCap size={20} className="text-[#AC3520]" />}
+            icon={<GraduationCap size={20} style={{ color: "#AC3520" }} />}
             label="รหัสนักศึกษา"
             value={me?.student?.student_id ?? "—"}
+            accent="#AC3520"
+            delay={50}
           />
           <InfoCard
-            icon={<BookOpen size={20} className="text-emerald-600" />}
+            icon={<BookOpen size={20} style={{ color: "#10b981" }} />}
             label="หน่วยกิตที่ลงทะเบียน"
-            value={`${totalCredits} หน่วยกิต`}
+            value={`${totalCredits} น.`}
+            accent="#10b981"
+            delay={100}
           />
           <InfoCard
-            icon={<CalendarDays size={20} className="text-violet-600" />}
+            icon={<TrendingUp size={20} style={{ color: "#8b5cf6" }} />}
             label="GPAX"
             value={me?.student?.gpax?.toFixed(2) ?? "—"}
+            accent="#8b5cf6"
+            delay={150}
           />
         </div>
 
-        {/* ── Mini Timetable ── */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 overflow-hidden shadow-sm">
-          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-800 dark:text-slate-100 text-[15px]">
-              ตารางเรียนประจำสัปดาห์
-            </h2>
+        {/* Mini timetable — row=day, col=time */}
+        <div
+          className="rounded-[20px] overflow-hidden fade-up fade-up-3"
+          style={{
+            background: "var(--glass-bg)",
+            backdropFilter: "blur(16px) saturate(160%)",
+            WebkitBackdropFilter: "blur(16px) saturate(160%)",
+            border: "1px solid var(--glass-border-subtle)",
+            boxShadow: "var(--glass-shadow)",
+          }}
+        >
+          <div
+            className="px-5 py-4 flex items-center justify-between"
+            style={{ borderBottom: "1px solid var(--glass-border-subtle)" }}
+          >
+            <div className="flex items-center gap-2.5">
+              <div
+                className="w-1 h-4 rounded-full"
+                style={{
+                  background: "linear-gradient(180deg,#AC3520,#c94030)",
+                }}
+              />
+              <h2
+                className="font-semibold text-[14px]"
+                style={{
+                  letterSpacing: "-0.01em",
+                  color: "var(--foreground)",
+                  fontFamily: "var(--font-dm-sans)",
+                }}
+              >
+                ตารางเรียนประจำสัปดาห์
+              </h2>
+            </div>
             {timetable && (
-              <span className="text-[12px] text-slate-400">
+              <span
+                className="text-[11px] font-semibold px-3 py-1 rounded-full"
+                style={{ background: "rgba(172,53,32,0.08)", color: "#AC3520" }}
+              >
                 ภาค {timetable.semester}/{timetable.academic_year}
               </span>
             )}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr>
-                  <th className="w-14 py-3 px-2 text-slate-400 font-medium border-b border-r border-slate-100 dark:border-slate-700/40 bg-slate-50 dark:bg-slate-800/50">
-                    เวลา
-                  </th>
-                  {DAY_ORDER.map((d) => (
-                    <th
-                      key={d}
-                      className="py-3 px-3 text-center text-slate-600 dark:text-slate-300 font-medium border-b border-r border-slate-100 dark:border-slate-700/40 bg-slate-50 dark:bg-slate-800/50 last:border-r-0"
-                    >
-                      {DAY_LABEL[d]}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {HOURS.map((hour) => (
-                  <tr
-                    key={hour}
-                    className="border-b border-slate-100 dark:border-slate-700/40 last:border-b-0"
-                  >
-                    <td className="py-2 px-2 text-center text-slate-400 border-r border-slate-100 dark:border-slate-700/40 whitespace-nowrap">
-                      {String(hour).padStart(2, "0")}:00
-                    </td>
-                    {DAY_ORDER.map((_, dayIdx) => {
-                      const entry = entries.find(
-                        (e) =>
-                          e.day === dayIdx &&
-                          e.startHour <= hour &&
-                          hour < e.endHour,
-                      );
-                      const isStart = entry && entry.startHour === hour;
-                      const span = entry ? entry.endHour - entry.startHour : 1;
 
-                      // Cell already covered by a rowSpan above — return null to skip
-                      if (entry && !isStart) return null;
-
-                      return (
-                        <td
-                          key={dayIdx}
-                          rowSpan={isStart ? span : 1}
-                          className="px-1.5 py-1 border-r border-slate-100 dark:border-slate-700/40 last:border-r-0 align-top"
+          <div className="overflow-x-auto scrollbar-thin p-4">
+            {!grid || courses.length === 0 ? (
+              <div
+                className="flex flex-col items-center py-10 gap-2"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                <BookOpen size={28} style={{ opacity: 0.2 }} />
+                <p
+                  className="text-[13px]"
+                  style={{ fontFamily: "var(--font-sarabun)" }}
+                >
+                  ยังไม่มีวิชาในตารางเรียน
+                </p>
+              </div>
+            ) : (
+              <table
+                style={{
+                  borderCollapse: "separate",
+                  borderSpacing: 4,
+                  minWidth: HOURS.length * (COL_W + 4) + 90,
+                }}
+              >
+                <thead>
+                  <tr>
+                    {/* empty corner */}
+                    <th style={{ width: 84 }} />
+                    {/* time column headers */}
+                    {HOURS.map((h) => (
+                      <th
+                        key={h}
+                        style={{
+                          width: COL_W,
+                          padding: 0,
+                          textAlign: "center",
+                        }}
+                      >
+                        <div
+                          style={{
+                            paddingBottom: 6,
+                            fontSize: 10,
+                            fontWeight: 600,
+                            color: "var(--muted-foreground)",
+                            opacity: 0.5,
+                            fontFamily:
+                              "var(--font-dm-mono,'DM Mono',monospace)",
+                          }}
                         >
-                          {isStart && entry && (
-                            <div
-                              className={`rounded-lg border px-2 py-1.5 h-full ${entry.colorClass}`}
-                            >
-                              <p className="font-semibold leading-tight">
-                                {entry.course.course_id}
-                              </p>
-                              <p className="text-[10px] opacity-75 truncate">
-                                {entry.course.course_name_th}
-                              </p>
-                              <p className="text-[10px] opacity-60">
-                                Sec {entry.course.section_num}
-                              </p>
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
+                          {String(h).padStart(2, "0")}:00
+                        </div>
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {DAY_ORDER.map((day) => (
+                    <tr key={day}>
+                      {/* row label = day */}
+                      <td style={{ padding: 0, verticalAlign: "middle" }}>
+                        <div
+                          style={{
+                            height: 48,
+                            borderRadius: 10,
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "rgba(172,53,32,0.06)",
+                            border: "1px solid rgba(172,53,32,0.1)",
+                            padding: "4px 6px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#AC3520",
+                              fontFamily:
+                                "var(--font-dm-sans,'DM Sans',sans-serif)",
+                            }}
+                          >
+                            {DAY_SHORT[day]}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 500,
+                              color: "rgba(172,53,32,0.55)",
+                              fontFamily:
+                                "var(--font-sarabun,'Sarabun',sans-serif)",
+                            }}
+                          >
+                            {DAY_LABEL[day]}
+                          </span>
+                        </div>
+                      </td>
+                      {/* time cells, colSpan = slot duration */}
+                      {HOURS.map((_, hIdx) => {
+                        const cell = grid[day][hIdx];
+                        if (cell === "SPAN") return null;
+                        const span =
+                          cell !== null ? cell.endHour - cell.startHour : 1;
+                        const p =
+                          cell !== null
+                            ? PALETTE[cell.colorIdx % PALETTE.length]
+                            : null;
+                        return (
+                          <td
+                            key={hIdx}
+                            colSpan={span}
+                            style={{
+                              padding: 0,
+                              height: 48,
+                              verticalAlign: "top",
+                            }}
+                          >
+                            {cell !== null && p ? (
+                              <div
+                                style={{
+                                  height: "100%",
+                                  borderRadius: 10,
+                                  background: p.grad,
+                                  border: `1px solid ${p.border}`,
+                                  boxShadow: `0 2px 10px ${p.glow}, inset 0 1px 0 ${p.shine}`,
+                                  padding: span >= 2 ? "6px 9px" : "4px 6px",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  justifyContent: "center",
+                                  overflow: "hidden",
+                                  position: "relative",
+                                  transition: "transform .15s",
+                                  cursor: "default",
+                                }}
+                                onMouseEnter={(e) => {
+                                  const el = e.currentTarget as HTMLDivElement;
+                                  el.style.transform =
+                                    "scale(1.03) translateY(-1px)";
+                                  el.style.zIndex = "10";
+                                }}
+                                onMouseLeave={(e) => {
+                                  const el = e.currentTarget as HTMLDivElement;
+                                  el.style.transform = "";
+                                  el.style.zIndex = "";
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: "10%",
+                                    right: "10%",
+                                    height: "40%",
+                                    background: `linear-gradient(180deg,${p.shine},transparent)`,
+                                    borderRadius: "0 0 50% 50%",
+                                    pointerEvents: "none",
+                                  }}
+                                />
+                                <p
+                                  style={{
+                                    position: "relative",
+                                    zIndex: 1,
+                                    fontSize: span >= 2 ? 10.5 : 9,
+                                    fontWeight: 700,
+                                    color: "#fff",
+                                    letterSpacing: "-0.01em",
+                                    lineHeight: 1.2,
+                                    fontFamily:
+                                      "var(--font-dm-mono,'DM Mono',monospace)",
+                                    textShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {cell.course.course_id}
+                                </p>
+                                {span >= 2 && (
+                                  <p
+                                    style={{
+                                      position: "relative",
+                                      zIndex: 1,
+                                      fontSize: 9,
+                                      color: "rgba(255,255,255,0.72)",
+                                      marginTop: 1,
+                                      fontFamily:
+                                        "var(--font-sarabun,'Sarabun',sans-serif)",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    Sec {cell.course.section_num}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  height: 48,
+                                  borderRadius: 8,
+                                  background:
+                                    hIdx % 2 === 0
+                                      ? "rgba(0,0,0,0.018)"
+                                      : "transparent",
+                                  border: "1px solid rgba(0,0,0,0.03)",
+                                }}
+                              />
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </main>

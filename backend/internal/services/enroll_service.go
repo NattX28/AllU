@@ -312,13 +312,42 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 			}
 		}
 
-		// Add new enrollments (skip if already exists as graded)
+		// Add new enrollments (skip if already exists as enrolled/graded)
 		for sidStr := range newMap {
 			if existing, exists := oldMap[sidStr]; exists {
 				if existing.Status == models.StatusGraded {
 					continue // graded อยู่แล้ว ไม่ต้อง insert ซ้ำ
 				}
 				continue // enrolled อยู่แล้ว ไม่ต้อง insert ซ้ำ
+			}
+
+			sid, _ := uuid.Parse(sidStr)
+
+			// ตรวจสอบ withdrawn enrollment ที่ยังอยู่ใน DB (soft-deleted หรือ status=withdrawn)
+			// ถ้าเจอ ให้ reactivate แทนการ INSERT ใหม่ เพื่อป้องกัน duplicate key
+			var existingWithdrawn models.Enrollment
+			err := tx.Unscoped().
+				Where("student_id = ? AND section_id = ?", std.StudentID, sid).
+				First(&existingWithdrawn).Error
+			if err == nil {
+				// มี record อยู่แล้ว (withdrawn/soft-deleted) → reactivate แทน INSERT
+				var sec models.Section
+				tx.First(&sec, "id = ?", sid)
+				existingWithdrawn.DeletedAt = gorm.DeletedAt{} // clear soft delete
+				existingWithdrawn.Status = models.StatusEnrolled
+				existingWithdrawn.Semester = sec.Semester
+				existingWithdrawn.AcademicYear = sec.AcademicYear
+				if err := tx.Unscoped().Save(&existingWithdrawn).Error; err != nil {
+					return err
+				}
+				key := fmt.Sprintf("section:%s:seats", sidStr)
+				remaining, _ := s.rdb.Decr(ctx, key).Result()
+				if remaining < 0 {
+					s.rdb.Incr(ctx, key)
+					return fmt.Errorf("section %s is full", sidStr)
+				}
+				tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
+				continue
 			}
 
 			key := fmt.Sprintf("section:%s:seats", sidStr)
@@ -328,17 +357,18 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 				return fmt.Errorf("section %s is full", sidStr)
 			}
 
-			sid, _ := uuid.Parse(sidStr)
 			var sec models.Section
 			tx.First(&sec, "id = ?", sid)
 
-			tx.Create(&models.Enrollment{
+			if err := tx.Create(&models.Enrollment{
 				StudentID:    std.StudentID,
 				SectionID:    sid,
 				Status:       models.StatusEnrolled,
 				Semester:     sec.Semester,
 				AcademicYear: sec.AcademicYear,
-			})
+			}).Error; err != nil {
+				return err
+			}
 			tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
 		}
 

@@ -289,6 +289,10 @@ export interface EnrollmentHistoryItem {
   status: string;
   semester: number;
   academic_year: number;
+  attendance_score?: number;
+  assignment_score?: number;
+  midterm_score?: number;
+  final_score?: number;
   total_score: number;
   grade: string;
 }

@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { enrollService } from "@/services/enrollService";
 import type { EnrollmentHistoryResponse, EnrollmentHistoryItem } from "@/types";
 import ProtectedLayout from "@/components/layout/ProtectedLayout";
-import { BookOpen, TrendingUp } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -18,30 +18,38 @@ import {
 const CURRENT_YEAR = new Date().getFullYear() + 543;
 const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 2 + i);
 
-const STATUS_BADGE: Record<string, string> = {
-  enrolled:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400",
-  graded: "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",
-  withdrawn:
-    "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400",
-};
-const STATUS_LABEL: Record<string, string> = {
-  enrolled: "ลงทะเบียนแล้ว",
-  graded: "ได้เกรดแล้ว",
-  withdrawn: "ถอนแล้ว",
+const STATUS_BADGE: Record<
+  string,
+  { bg: string; color: string; label: string }
+> = {
+  enrolled: {
+    bg: "rgba(16,185,129,0.1)",
+    color: "#065f46",
+    label: "ลงทะเบียนแล้ว",
+  },
+  graded: {
+    bg: "rgba(59,130,246,0.1)",
+    color: "#1d4ed8",
+    label: "ได้เกรดแล้ว",
+  },
+  withdrawn: {
+    bg: "rgba(0,0,0,0.05)",
+    color: "var(--muted-foreground)",
+    label: "ถอนแล้ว",
+  },
 };
 
 const GRADE_COLOR: Record<string, string> = {
-  A: "text-emerald-600 font-bold",
-  "B+": "text-emerald-500 font-semibold",
-  B: "text-blue-600 font-semibold",
-  "C+": "text-blue-500",
-  C: "text-amber-600",
-  "D+": "text-orange-500",
-  D: "text-orange-600",
-  F: "text-red-600 font-bold",
-  W: "text-slate-400",
-  I: "text-slate-400",
+  A: "#059669",
+  "B+": "#10b981",
+  B: "#3b82f6",
+  "C+": "#6366f1",
+  C: "#f59e0b",
+  "D+": "#f97316",
+  D: "#ef4444",
+  F: "#dc2626",
+  W: "var(--muted-foreground)",
+  I: "var(--muted-foreground)",
 };
 
 type Tab = "courses" | "scores";
@@ -64,7 +72,6 @@ export default function GradesPage() {
       try {
         const data = await enrollService.getHistory(semester, year);
         setHistory(data);
-        console.log(data);
       } catch (err) {
         console.error(err);
       } finally {
@@ -86,35 +93,58 @@ export default function GradesPage() {
       subtitle="ประวัติการลงทะเบียนและคะแนน"
       allowedRoles={["student"]}
     >
-      <main className="flex-1 overflow-y-auto p-6 space-y-4">
+      <main className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin">
         {/* ── Controls ── */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap fade-up">
           <Select
             value={String(year)}
             onValueChange={(v) => setYear(Number(v))}
           >
-            <SelectTrigger className="w-40 h-10">
+            <SelectTrigger
+              className="w-44 h-10 rounded-[12px] border-0 text-[13px] font-medium"
+              style={{
+                background: "var(--glass-bg)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                border: "1px solid var(--glass-border-subtle)",
+                boxShadow: "var(--glass-shadow)",
+              }}
+            >
               <SelectValue placeholder="ปีการศึกษา" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-[16px]">
               {YEAR_OPTIONS.map((y) => (
-                <SelectItem key={y} value={String(y)}>
+                <SelectItem key={y} value={String(y)} className="text-[13px]">
                   ปีการศึกษา {y}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+          <div
+            className="flex items-center gap-1 p-1 rounded-[12px]"
+            style={{
+              background: "var(--glass-bg)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              border: "1px solid var(--glass-border-subtle)",
+              boxShadow: "var(--glass-shadow)",
+            }}
+          >
             {[1, 2, 3].map((s) => (
               <button
                 key={s}
                 onClick={() => setSemester(s)}
-                className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${
+                className="px-4 py-1.5 rounded-[9px] text-[13px] font-medium transition-all duration-200"
+                style={
                   semester === s
-                    ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                }`}
+                    ? {
+                        background: "linear-gradient(135deg, #AC3520, #c94030)",
+                        color: "white",
+                        boxShadow: "0 1px 4px rgba(172,53,32,0.3)",
+                      }
+                    : { color: "var(--muted-foreground)" }
+                }
               >
                 ภาค {s}
               </button>
@@ -123,48 +153,102 @@ export default function GradesPage() {
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex border-b border-slate-200 dark:border-slate-700/60">
+        <div
+          className="flex gap-0 fade-up fade-up-1"
+          style={{ borderBottom: "1px solid var(--glass-border-subtle)" }}
+        >
           {(["courses", "scores"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-5 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
-                tab === t
-                  ? "border-[#AC3520] text-[#AC3520]"
-                  : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              }`}
+              className="px-5 py-2.5 text-[13px] font-semibold transition-all duration-200 relative"
+              style={{
+                color: tab === t ? "#AC3520" : "var(--muted-foreground)",
+                fontFamily: "'Sarabun', sans-serif",
+              }}
             >
               {t === "courses" ? "รายวิชาที่ลงทะเบียน" : "คะแนน"}
+              {tab === t && (
+                <span
+                  className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
+                  style={{
+                    background: "linear-gradient(90deg, #AC3520, #c94030)",
+                  }}
+                />
+              )}
             </button>
           ))}
         </div>
 
-        {/* ── Content ── */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
+        {/* ── Main Card ── */}
+        <div
+          className="rounded-[20px] overflow-hidden fade-up fade-up-2"
+          style={{
+            background: "var(--glass-bg)",
+            backdropFilter: "blur(16px) saturate(160%)",
+            WebkitBackdropFilter: "blur(16px) saturate(160%)",
+            border: "1px solid var(--glass-border-subtle)",
+            boxShadow: "var(--glass-shadow)",
+          }}
+        >
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <div className="w-8 h-8 border-2 border-slate-200 border-t-[#AC3520] rounded-full animate-spin mb-3" />
-              <p className="text-[13px]">กำลังโหลด...</p>
+            <div
+              className="flex flex-col items-center justify-center py-20"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              <div
+                className="w-8 h-8 rounded-full border-2 animate-spin mb-3"
+                style={{
+                  borderColor: "var(--glass-border-subtle)",
+                  borderTopColor: "#AC3520",
+                }}
+              />
+              <p
+                className="text-[13px]"
+                style={{ fontFamily: "'Sarabun', sans-serif" }}
+              >
+                กำลังโหลด...
+              </p>
             </div>
           ) : courses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <BookOpen size={40} className="mb-3 opacity-30" />
-              <p className="text-[14px] font-medium">ไม่มีข้อมูลการลงทะเบียน</p>
-              <p className="text-[12px] mt-1 opacity-70">
+            <div
+              className="flex flex-col items-center justify-center py-20"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              <BookOpen size={40} className="mb-3 opacity-20" />
+              <p
+                className="text-[14px] font-medium"
+                style={{ fontFamily: "'Sarabun', sans-serif" }}
+              >
+                ไม่มีข้อมูลการลงทะเบียน
+              </p>
+              <p
+                className="text-[12px] mt-1 opacity-70"
+                style={{ fontFamily: "'Sarabun', sans-serif" }}
+              >
                 ภาค {semester} ปีการศึกษา {year}
               </p>
             </div>
           ) : tab === "courses" ? (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto scrollbar-thin">
                 <table className="w-full text-[13px]">
                   <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800/50">
+                    <tr
+                      style={{
+                        background: "rgba(0,0,0,0.02)",
+                        borderBottom: "1px solid var(--glass-border-subtle)",
+                      }}
+                    >
                       {["รหัสวิชา", "ตอน", "ชื่อวิชา", "หน่วยกิต", "สถานะ"].map(
                         (h) => (
                           <th
                             key={h}
-                            className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap"
+                            className="px-4 py-3 text-left font-semibold text-[11px] uppercase"
+                            style={{
+                              color: "var(--muted-foreground)",
+                              letterSpacing: "0.04em",
+                            }}
                           >
                             {h}
                           </th>
@@ -172,79 +256,135 @@ export default function GradesPage() {
                       )}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
-                    {courses.map((c) => (
-                      <tr
-                        key={c.enrollment_id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                      >
-                        <td className="px-4 py-3 font-medium font-mono text-slate-800 dark:text-slate-100">
-                          {c.course_id}
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-500">
-                          {c.section_num}
-                        </td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                          <p className="font-medium">{c.course_name_th}</p>
-                          <p className="text-[11px] text-slate-400">
-                            {c.course_name_en}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-500">
-                          {c.credits}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_BADGE[c.status] ?? "bg-slate-100 text-slate-500"}`}
+                  <tbody>
+                    {courses.map((c, i) => {
+                      const badge =
+                        STATUS_BADGE[c.status] ?? STATUS_BADGE.withdrawn;
+                      return (
+                        <tr
+                          key={c.enrollment_id}
+                          style={{
+                            borderBottom:
+                              i < courses.length - 1
+                                ? "1px solid var(--glass-border-subtle)"
+                                : "none",
+                          }}
+                        >
+                          <td
+                            className="px-4 py-3 font-semibold"
+                            style={{
+                              fontFamily: "'DM Mono', monospace",
+                              fontSize: "12px",
+                              color: "var(--foreground)",
+                            }}
                           >
-                            {STATUS_LABEL[c.status] ?? c.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                            {c.course_id}
+                          </td>
+                          <td
+                            className="px-4 py-3 text-center"
+                            style={{ color: "var(--muted-foreground)" }}
+                          >
+                            {c.section_num}
+                          </td>
+                          <td className="px-4 py-3">
+                            <p
+                              className="font-medium text-[13px]"
+                              style={{
+                                color: "var(--foreground)",
+                                fontFamily: "'Sarabun', sans-serif",
+                              }}
+                            >
+                              {c.course_name_th}
+                            </p>
+                            <p
+                              className="text-[11px]"
+                              style={{ color: "var(--muted-foreground)" }}
+                            >
+                              {c.course_name_en}
+                            </p>
+                          </td>
+                          <td
+                            className="px-4 py-3 text-center font-semibold"
+                            style={{ color: "var(--foreground)" }}
+                          >
+                            {c.credits}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className="pill"
+                              style={{
+                                background: badge.bg,
+                                color: badge.color,
+                              }}
+                            >
+                              {badge.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-              {/* Footer */}
-              <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700/40 flex items-center gap-4 text-[12px] text-slate-500">
-                <span>รวม {activeCourses.length} รายวิชา</span>
-                <span className="text-slate-300 dark:text-slate-600">|</span>
-                <span>{totalCredits} หน่วยกิต</span>
-                <span className="text-[11px] text-slate-400">
-                  (นับเฉพาะวิชาที่ enrolled และ graded)
+              <div
+                className="px-4 py-3 flex items-center gap-4 text-[12px]"
+                style={{
+                  borderTop: "1px solid var(--glass-border-subtle)",
+                  color: "var(--muted-foreground)",
+                  fontFamily: "'Sarabun', sans-serif",
+                }}
+              >
+                <span
+                  className="font-medium"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  รวม {activeCourses.length} รายวิชา
                 </span>
+                <span>·</span>
+                <span>{totalCredits} หน่วยกิต</span>
               </div>
             </>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full table-fixed min-w-[720px] text-[13px]">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/50">
-                    <th className="px-4 py-3 w-[120px] text-left">รหัสวิชา</th>
-                    <th className="px-4 py-3 w-[220px] text-left">ชื่อวิชา</th>
-
-                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
-                      เข้าเรียน
-                    </th>
-                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
-                      งาน
-                    </th>
-                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
-                      กลางภาค
-                    </th>
-                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
-                      ปลายภาค
-                    </th>
-                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
-                      รวม
-                    </th>
-                    <th className="px-4 py-3 w-[70px] text-center">เกรด</th>
+                  <tr
+                    style={{
+                      background: "rgba(0,0,0,0.02)",
+                      borderBottom: "1px solid var(--glass-border-subtle)",
+                    }}
+                  >
+                    {[
+                      { label: "รหัสวิชา", w: "120px" },
+                      { label: "ชื่อวิชา", w: "220px" },
+                      { label: "เข้าเรียน", w: "90px" },
+                      { label: "งาน", w: "90px" },
+                      { label: "กลางภาค", w: "90px" },
+                      { label: "ปลายภาค", w: "90px" },
+                      { label: "รวม", w: "90px" },
+                      { label: "เกรด", w: "70px" },
+                    ].map((h) => (
+                      <th
+                        key={h.label}
+                        className="px-4 py-3 text-left font-semibold text-[11px] uppercase"
+                        style={{
+                          color: "var(--muted-foreground)",
+                          letterSpacing: "0.04em",
+                          width: h.w,
+                        }}
+                      >
+                        {h.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
-                  {courses.map((c) => (
-                    <ScoreRow key={c.enrollment_id} course={c} />
+                <tbody>
+                  {courses.map((c, i) => (
+                    <ScoreRow
+                      key={c.enrollment_id}
+                      course={c}
+                      isLast={i === courses.length - 1}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -256,49 +396,71 @@ export default function GradesPage() {
   );
 }
 
-// ─── Score Row sub-component ─────────────────────────────────
-// Uses EnrollmentHistoryItem which has total_score & grade at top level
-// Attendance/assignment/midterm/final are not in EnrollmentHistoryItem per the DTO,
-// so they display "—". If the backend later adds them they'll show up.
-function ScoreRow({ course }: { course: EnrollmentHistoryItem }) {
+function ScoreRow({
+  course,
+  isLast,
+}: {
+  course: EnrollmentHistoryItem;
+  isLast: boolean;
+}) {
   const fmt = (v: number | undefined | null) =>
     v != null ? v.toFixed(1) : "—";
+  const gradeColor = GRADE_COLOR[course.grade] ?? "var(--foreground)";
 
   return (
-    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-      <td className="px-4 py-3 font-medium font-mono text-slate-800 dark:text-slate-100">
+    <tr
+      style={{
+        borderBottom: isLast ? "none" : "1px solid var(--glass-border-subtle)",
+      }}
+    >
+      <td
+        className="px-4 py-3 font-semibold"
+        style={{
+          fontFamily: "'DM Mono', monospace",
+          fontSize: "12px",
+          color: "var(--foreground)",
+        }}
+      >
         {course.course_id}
       </td>
-
-      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-        <p className="font-medium truncate">{course.course_name_th}</p>
-        <p className="text-[11px] text-slate-400 truncate">
+      <td className="px-4 py-3">
+        <p
+          className="font-medium truncate text-[13px]"
+          style={{
+            color: "var(--foreground)",
+            fontFamily: "'Sarabun', sans-serif",
+          }}
+        >
+          {course.course_name_th}
+        </p>
+        <p
+          className="text-[11px] truncate"
+          style={{ color: "var(--muted-foreground)" }}
+        >
           {course.course_name_en}
         </p>
       </td>
-
-      <td className="px-4 py-3 text-center tabular-nums">
-        {fmt(course.attendance_score)}
-      </td>
-      <td className="px-4 py-3 text-center tabular-nums">
-        {fmt(course.assignment_score)}
-      </td>
-      <td className="px-4 py-3 text-center tabular-nums">
-        {fmt(course.midterm_score)}
-      </td>
-      <td className="px-4 py-3 text-center tabular-nums">
-        {fmt(course.final_score)}
-      </td>
-
-      <td className="px-4 py-3 text-center tabular-nums font-medium text-slate-700 dark:text-slate-200">
-        {fmt(course.total_score)}
-      </td>
-
+      {[
+        course.attendance_score,
+        course.assignment_score,
+        course.midterm_score,
+        course.final_score,
+        course.total_score,
+      ].map((v, i) => (
+        <td
+          key={i}
+          className="px-4 py-3 text-center tabular-nums font-medium text-[13px]"
+          style={{
+            color: v != null ? "var(--foreground)" : "var(--muted-foreground)",
+          }}
+        >
+          {fmt(v)}
+        </td>
+      ))}
       <td className="px-4 py-3 text-center">
         <span
-          className={
-            GRADE_COLOR[course.grade] ?? "text-slate-600 dark:text-slate-300"
-          }
+          className="text-[14px] font-bold"
+          style={{ color: gradeColor, fontFamily: "'DM Sans', sans-serif" }}
         >
           {course.grade || "—"}
         </span>

@@ -37,51 +37,68 @@ const HOURS = Array.from(
 
 const PALETTE = [
   {
-    bg: "bg-blue-100 dark:bg-blue-900/30",
-    text: "text-blue-800 dark:text-blue-200",
-    border: "border-l-4 border-l-blue-500",
+    grad: "linear-gradient(145deg,#3b82f6,#60a5fa)",
+    glow: "rgba(59,130,246,0.32)",
+    glass: "rgba(59,130,246,0.13)",
+    border: "rgba(59,130,246,0.4)",
+    shine: "rgba(147,197,253,0.28)",
   },
   {
-    bg: "bg-emerald-100 dark:bg-emerald-900/30",
-    text: "text-emerald-800 dark:text-emerald-200",
-    border: "border-l-4 border-l-emerald-500",
+    grad: "linear-gradient(145deg,#10b981,#34d399)",
+    glow: "rgba(16,185,129,0.32)",
+    glass: "rgba(16,185,129,0.13)",
+    border: "rgba(16,185,129,0.4)",
+    shine: "rgba(110,231,183,0.28)",
   },
   {
-    bg: "bg-violet-100 dark:bg-violet-900/30",
-    text: "text-violet-800 dark:text-violet-200",
-    border: "border-l-4 border-l-violet-500",
+    grad: "linear-gradient(145deg,#8b5cf6,#a78bfa)",
+    glow: "rgba(139,92,246,0.32)",
+    glass: "rgba(139,92,246,0.13)",
+    border: "rgba(139,92,246,0.4)",
+    shine: "rgba(196,181,253,0.28)",
   },
   {
-    bg: "bg-amber-100 dark:bg-amber-900/30",
-    text: "text-amber-800 dark:text-amber-200",
-    border: "border-l-4 border-l-amber-500",
+    grad: "linear-gradient(145deg,#f59e0b,#fbbf24)",
+    glow: "rgba(245,158,11,0.32)",
+    glass: "rgba(245,158,11,0.13)",
+    border: "rgba(245,158,11,0.4)",
+    shine: "rgba(252,211,77,0.28)",
   },
   {
-    bg: "bg-pink-100 dark:bg-pink-900/30",
-    text: "text-pink-800 dark:text-pink-200",
-    border: "border-l-4 border-l-pink-500",
+    grad: "linear-gradient(145deg,#ec4899,#f472b6)",
+    glow: "rgba(236,72,153,0.32)",
+    glass: "rgba(236,72,153,0.13)",
+    border: "rgba(236,72,153,0.4)",
+    shine: "rgba(249,168,212,0.28)",
   },
   {
-    bg: "bg-cyan-100 dark:bg-cyan-900/30",
-    text: "text-cyan-800 dark:text-cyan-200",
-    border: "border-l-4 border-l-cyan-500",
+    grad: "linear-gradient(145deg,#06b6d4,#22d3ee)",
+    glow: "rgba(6,182,212,0.32)",
+    glass: "rgba(6,182,212,0.13)",
+    border: "rgba(6,182,212,0.4)",
+    shine: "rgba(103,232,249,0.28)",
   },
   {
-    bg: "bg-orange-100 dark:bg-orange-900/30",
-    text: "text-orange-800 dark:text-orange-200",
-    border: "border-l-4 border-l-orange-500",
+    grad: "linear-gradient(145deg,#f97316,#fb923c)",
+    glow: "rgba(249,115,22,0.32)",
+    glass: "rgba(249,115,22,0.13)",
+    border: "rgba(249,115,22,0.4)",
+    shine: "rgba(253,186,116,0.28)",
   },
   {
-    bg: "bg-teal-100 dark:bg-teal-900/30",
-    text: "text-teal-800 dark:text-teal-200",
-    border: "border-l-4 border-l-teal-500",
+    grad: "linear-gradient(145deg,#14b8a6,#2dd4bf)",
+    glow: "rgba(20,184,166,0.32)",
+    glass: "rgba(20,184,166,0.13)",
+    border: "rgba(20,184,166,0.4)",
+    shine: "rgba(94,234,212,0.28)",
   },
 ];
 
 const CURRENT_YEAR = new Date().getFullYear() + 543;
 const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 2 + i);
+const COL_W = 64; // px per hour column
 
-// ─── Grid types ───────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────
 interface SlotEntry {
   course: TimetableCourse;
   startHour: number;
@@ -89,6 +106,7 @@ interface SlotEntry {
   room: string;
   colorIdx: number;
 }
+// For each day row: index by hour → slot or "SPAN" or null
 type Cell = SlotEntry | "SPAN" | null;
 type Grid = Record<Day, Cell[]>;
 
@@ -101,49 +119,141 @@ function buildGrid(timetable: TimetableResponse): Grid {
     course.schedules.forEach((sch) => {
       const day = sch.day as Day;
       if (!grid[day]) return;
-
       const startH = parseInt(sch.start_time.split(":")[0], 10);
       const endH = parseInt(sch.end_time.split(":")[0], 10);
-      const startIdx = startH - START_HOUR;
-      const endIdx = endH - START_HOUR;
-
-      if (startIdx < 0 || startIdx >= HOURS.length) return;
-
-      grid[day][startIdx] = {
+      const si = startH - START_HOUR;
+      const ei = endH - START_HOUR;
+      if (si < 0 || si >= HOURS.length) return;
+      grid[day][si] = {
         course,
         startHour: startH,
         endHour: endH,
         room: sch.room,
         colorIdx: courseIdx,
       };
-      for (let i = startIdx + 1; i < endIdx && i < HOURS.length; i++) {
+      for (let i = si + 1; i < ei && i < HOURS.length; i++)
         grid[day][i] = "SPAN";
-      }
     });
   });
-
   return grid;
+}
+
+// ─── Slot card ────────────────────────────────────────────────
+function SlotCard({ entry, span }: { entry: SlotEntry; span: number }) {
+  const p = PALETTE[entry.colorIdx % PALETTE.length];
+  const wide = span >= 2;
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        borderRadius: 12,
+        background: p.grad,
+        border: `1px solid ${p.border}`,
+        boxShadow: `0 3px 12px ${p.glow}, inset 0 1px 0 ${p.shine}`,
+        padding: wide ? "8px 10px" : "5px 7px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: span >= 3 ? "space-between" : "flex-start",
+        overflow: "hidden",
+        position: "relative",
+        transition: "transform .15s, box-shadow .15s",
+        cursor: "default",
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget as HTMLDivElement;
+        el.style.transform = "scale(1.03) translateY(-1px)";
+        el.style.boxShadow = `0 8px 22px ${p.glow}, inset 0 1px 0 ${p.shine}`;
+        el.style.zIndex = "10";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLDivElement;
+        el.style.transform = "";
+        el.style.boxShadow = `0 3px 12px ${p.glow}, inset 0 1px 0 ${p.shine}`;
+        el.style.zIndex = "";
+      }}
+    >
+      {/* specular streak */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: "15%",
+          right: "15%",
+          height: "45%",
+          background: `linear-gradient(180deg,${p.shine},transparent)`,
+          borderRadius: "0 0 50% 50%",
+          pointerEvents: "none",
+        }}
+      />
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <p
+          style={{
+            fontSize: wide ? 11 : 9.5,
+            fontWeight: 700,
+            color: "#fff",
+            letterSpacing: "-0.01em",
+            lineHeight: 1.2,
+            fontFamily: "var(--font-dm-mono,'DM Mono',monospace)",
+            textShadow: "0 1px 2px rgba(0,0,0,0.2)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {entry.course.course_id}
+        </p>
+        {wide && (
+          <p
+            style={{
+              fontSize: 9.5,
+              color: "rgba(255,255,255,0.78)",
+              marginTop: 2,
+              lineHeight: 1.3,
+              fontFamily: "var(--font-sarabun,'Sarabun',sans-serif)",
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+            }}
+          >
+            {entry.course.course_name_th}
+          </p>
+        )}
+      </div>
+      {span >= 3 && (
+        <p
+          style={{
+            position: "relative",
+            zIndex: 1,
+            fontSize: 9,
+            color: "rgba(255,255,255,0.65)",
+            fontFamily: "var(--font-dm-sans,'DM Sans',sans-serif)",
+          }}
+        >
+          {entry.room} · Sec.{entry.course.section_num}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────
 export default function SchedulePage() {
   const { accessToken, isLoading } = useAuth();
-
-  // null = not initialized yet (waiting for active period to pre-fill)
   const [year, setYear] = useState<number | null>(null);
   const [semester, setSemester] = useState<number | null>(null);
   const [timetable, setTimetable] = useState<TimetableResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ── Step 1: get active period to pre-fill dropdown ──
   useEffect(() => {
     if (isLoading || !accessToken) return;
     const init = async () => {
       try {
-        const period = await enrollService.getActivePeriod();
-        if (period) {
-          setSemester(period.semester);
-          setYear(period.academic_year);
+        const p = await enrollService.getActivePeriod();
+        if (p) {
+          setSemester(p.semester);
+          setYear(p.academic_year);
         } else {
           setSemester(1);
           setYear(CURRENT_YEAR);
@@ -156,30 +266,31 @@ export default function SchedulePage() {
     init();
   }, [isLoading, accessToken]);
 
-  // ── Step 2: fetch timetable whenever semester/year changes ──
   useEffect(() => {
     if (!accessToken || semester === null || year === null) return;
-    const fetch = async () => {
+    const load = async () => {
       setLoading(true);
       try {
-        const data = await enrollService.getSchedule(semester, year);
-        setTimetable(data);
-      } catch (err) {
-        console.error(err);
+        setTimetable(await enrollService.getSchedule(semester, year));
+      } catch {
         setTimetable(null);
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    load();
   }, [accessToken, semester, year]);
 
   const grid = useMemo(
     () => (timetable ? buildGrid(timetable) : null),
     [timetable],
   );
-
   const isEmpty = !timetable || timetable.courses.length === 0;
+
+  // Show all 7 days always
+  const displayDays: Day[] = [...DAY_ORDER];
+
+  const currentHour = new Date().getHours();
 
   return (
     <ProtectedLayout
@@ -187,35 +298,63 @@ export default function SchedulePage() {
       subtitle="ตารางเรียนประจำภาคการศึกษา"
       allowedRoles={["student"]}
     >
-      <main className="flex-1 overflow-y-auto p-6 space-y-4">
-        {/* ── Controls ── */}
-        <div className="flex items-center gap-3 flex-wrap">
+      <main className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
+        {/* Controls */}
+        <div className="flex items-center gap-3 flex-wrap fade-up">
           <Select
             value={year !== null ? String(year) : ""}
             onValueChange={(v) => setYear(Number(v))}
           >
-            <SelectTrigger className="w-40 h-10">
+            <SelectTrigger
+              className="w-44 h-10 rounded-[12px] text-[13px] font-medium border-0"
+              style={{
+                background: "var(--glass-bg)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                border: "1px solid var(--glass-border-subtle)",
+                boxShadow: "var(--glass-shadow)",
+              }}
+            >
               <SelectValue placeholder="ปีการศึกษา" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-[16px]">
               {YEAR_OPTIONS.map((y) => (
-                <SelectItem key={y} value={String(y)}>
+                <SelectItem key={y} value={String(y)} className="text-[13px]">
                   ปีการศึกษา {y}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+          <div
+            className="flex items-center gap-1 p-1 rounded-[12px]"
+            style={{
+              background: "var(--glass-bg)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              border: "1px solid var(--glass-border-subtle)",
+              boxShadow: "var(--glass-shadow)",
+            }}
+          >
             {[1, 2, 3].map((s) => (
               <button
                 key={s}
                 onClick={() => setSemester(s)}
-                className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${
+                className="px-4 py-1.5 rounded-[9px] text-[13px] font-medium transition-all duration-200"
+                style={
                   semester === s
-                    ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                }`}
+                    ? {
+                        background: "linear-gradient(135deg,#AC3520,#c94030)",
+                        color: "white",
+                        boxShadow: "0 1px 4px rgba(172,53,32,.3)",
+                        border: "none",
+                      }
+                    : {
+                        color: "var(--muted-foreground)",
+                        background: "transparent",
+                        border: "none",
+                      }
+                }
               >
                 ภาค {s}
               </button>
@@ -223,121 +362,334 @@ export default function SchedulePage() {
           </div>
         </div>
 
-        {/* ── Timetable ── */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <div className="w-8 h-8 border-2 border-slate-200 border-t-[#AC3520] rounded-full animate-spin mb-3" />
-              <p className="text-[13px]">กำลังโหลดตารางเรียน...</p>
+        {/* States */}
+        {loading ? (
+          <div
+            className="flex flex-col items-center justify-center py-32 gap-3"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            <div
+              className="w-8 h-8 rounded-full border-2 animate-spin"
+              style={{
+                borderColor: "var(--glass-border-subtle)",
+                borderTopColor: "#AC3520",
+              }}
+            />
+            <p
+              className="text-[13px]"
+              style={{ fontFamily: "var(--font-sarabun)" }}
+            >
+              กำลังโหลดตารางเรียน...
+            </p>
+          </div>
+        ) : isEmpty ? (
+          <div
+            className="flex flex-col items-center justify-center py-32 gap-4"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            <div
+              className="w-16 h-16 rounded-[20px] flex items-center justify-center"
+              style={{
+                background: "rgba(172,53,32,0.07)",
+                border: "1px solid rgba(172,53,32,0.1)",
+              }}
+            >
+              <CalendarDays
+                size={28}
+                style={{ color: "#AC3520", opacity: 0.5 }}
+              />
             </div>
-          ) : isEmpty ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <CalendarDays size={40} className="mb-3 opacity-30" />
-              <p className="text-[14px] font-medium">ไม่มีวิชาในตารางเรียน</p>
-              <p className="text-[12px] mt-1 opacity-70">
+            <div className="text-center">
+              <p
+                className="text-[15px] font-semibold"
+                style={{
+                  color: "var(--foreground)",
+                  fontFamily: "var(--font-dm-sans)",
+                }}
+              >
+                ไม่มีวิชาในตารางเรียน
+              </p>
+              <p
+                className="text-[12px] mt-1"
+                style={{
+                  color: "var(--muted-foreground)",
+                  fontFamily: "var(--font-sarabun)",
+                }}
+              >
                 ภาค {semester} ปีการศึกษา {year}
               </p>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="border-collapse min-w-[900px] w-full text-[12px]">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/50">
-                    <th className="w-20 px-3 py-3 text-[11px] text-slate-400 font-medium border-b border-r border-slate-100 dark:border-slate-700/40 text-center whitespace-nowrap">
-                      วัน \ เวลา
-                    </th>
-                    {HOURS.map((h) => (
-                      <th
-                        key={h}
-                        className="px-2 py-3 text-[11px] text-slate-500 font-medium border-b border-r border-slate-100 dark:border-slate-700/40 last:border-r-0 text-center whitespace-nowrap"
-                        style={{ minWidth: "60px" }}
-                      >
-                        {String(h).padStart(2, "0")}:00
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {DAY_ORDER.map((day) => (
-                    <tr
-                      key={day}
-                      className="border-b border-slate-100 dark:border-slate-700/40 last:border-b-0"
-                      style={{ height: "60px" }}
-                    >
-                      <td className="px-3 py-2 text-center text-[12px] font-medium text-slate-600 dark:text-slate-300 border-r border-slate-100 dark:border-slate-700/40 bg-slate-50 dark:bg-slate-800/30 whitespace-nowrap">
-                        {DAY_LABEL[day]}
-                      </td>
-                      {HOURS.map((_, hIdx) => {
-                        const cell = grid![day][hIdx];
-                        if (cell === "SPAN") return null;
-                        if (cell === null) {
+          </div>
+        ) : (
+          <div className="space-y-4 fade-up fade-up-2">
+            {/* ── Grid card ── */}
+            <div
+              className="rounded-[22px] overflow-hidden"
+              style={{
+                background: "var(--glass-bg)",
+                backdropFilter: "blur(20px) saturate(160%)",
+                WebkitBackdropFilter: "blur(20px) saturate(160%)",
+                border: "1px solid var(--glass-border-subtle)",
+                boxShadow: "var(--glass-shadow-lg)",
+              }}
+            >
+              <div
+                className="flex items-center justify-between px-5 py-3"
+                style={{ borderBottom: "1px solid var(--glass-border-subtle)" }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className="w-1 h-4 rounded-full"
+                    style={{
+                      background: "linear-gradient(180deg,#AC3520,#c94030)",
+                    }}
+                  />
+                  <span
+                    className="text-[14px] font-semibold"
+                    style={{
+                      color: "var(--foreground)",
+                      letterSpacing: "-0.01em",
+                      fontFamily: "var(--font-dm-sans)",
+                    }}
+                  >
+                    ตารางเรียนประจำสัปดาห์
+                  </span>
+                </div>
+                {timetable && (
+                  <span
+                    className="text-[11px] font-semibold px-3 py-1 rounded-full"
+                    style={{
+                      background: "rgba(172,53,32,0.08)",
+                      color: "#AC3520",
+                    }}
+                  >
+                    ภาค {timetable.semester}/{timetable.academic_year}
+                  </span>
+                )}
+              </div>
+
+              {/*
+                ── THE GRID ──
+                Layout: row = day, col = time
+                Using <table> with colSpan for multi-hour slots
+              */}
+              <div className="overflow-x-auto scrollbar-thin p-4">
+                <table
+                  style={{
+                    borderCollapse: "separate",
+                    borderSpacing: 5,
+                    minWidth: HOURS.length * (COL_W + 5) + 120,
+                    width: "100%",
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      {/* Day label col */}
+                      <th style={{ width: 100, padding: 0 }} />
+                      {/* Hour cols */}
+                      {HOURS.map((hour) => (
+                        <th
+                          key={hour}
+                          style={{
+                            width: COL_W,
+                            padding: 0,
+                            textAlign: "center",
+                          }}
+                        >
+                          <div
+                            style={{
+                              padding: "5px 0",
+                              fontSize: 10.5,
+                              fontWeight: 600,
+                              color:
+                                currentHour === hour
+                                  ? "#AC3520"
+                                  : "var(--muted-foreground)",
+                              opacity: currentHour === hour ? 1 : 0.55,
+                              fontFamily:
+                                "var(--font-dm-mono,'DM Mono',monospace)",
+                            }}
+                          >
+                            {String(hour).padStart(2, "0")}:00
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayDays.map((day) => (
+                      <tr key={day}>
+                        {/* Day header cell */}
+                        <td style={{ padding: 0, verticalAlign: "middle" }}>
+                          <div
+                            style={{
+                              height: 56,
+                              borderRadius: 12,
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: "rgba(172,53,32,0.06)",
+                              border: "1px solid rgba(172,53,32,0.1)",
+                              padding: "4px 8px",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: "#AC3520",
+                                fontFamily:
+                                  "var(--font-dm-sans,'DM Sans',sans-serif)",
+                                letterSpacing: "-0.01em",
+                              }}
+                            >
+                              {/* Short day label */}
+                              {
+                                {
+                                  MON: "จ",
+                                  TUE: "อ",
+                                  WED: "พ",
+                                  THU: "พฤ",
+                                  FRI: "ศ",
+                                  SAT: "ส",
+                                  SUN: "อา",
+                                }[day]
+                              }
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 9.5,
+                                fontWeight: 500,
+                                marginTop: 1,
+                                color: "rgba(172,53,32,0.6)",
+                                fontFamily:
+                                  "var(--font-sarabun,'Sarabun',sans-serif)",
+                              }}
+                            >
+                              {DAY_LABEL[day]}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Hour cells for this day */}
+                        {HOURS.map((_, hIdx) => {
+                          const cell = grid![day][hIdx];
+                          if (cell === "SPAN") return null; // covered by colSpan above
+
+                          const span =
+                            cell !== null ? cell.endHour - cell.startHour : 1;
+
                           return (
                             <td
                               key={hIdx}
-                              className="border-r border-slate-100 dark:border-slate-700/30 last:border-r-0"
-                            />
-                          );
-                        }
-                        const span = cell.endHour - cell.startHour;
-                        const color = PALETTE[cell.colorIdx % PALETTE.length];
-                        return (
-                          <td
-                            key={hIdx}
-                            colSpan={span}
-                            className="px-1 py-1 border-r border-slate-100 dark:border-slate-700/30 align-middle"
-                          >
-                            <div
-                              className={`rounded-md px-2 py-1.5 overflow-hidden h-[48px] ${color.bg} ${color.border}`}
+                              colSpan={span}
+                              style={{
+                                padding: 0,
+                                height: 56,
+                                verticalAlign: "top",
+                              }}
                             >
-                              <p
-                                className={`text-[11px] font-semibold leading-tight truncate ${color.text}`}
-                              >
-                                {cell.course.course_id} (Sec.
-                                {cell.course.section_num})
-                              </p>
-                              <p
-                                className={`text-[10px] leading-tight truncate opacity-70 mt-0.5 ${color.text}`}
-                              >
-                                {cell.room}
-                              </p>
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                              {cell !== null ? (
+                                <SlotCard entry={cell} span={span} />
+                              ) : (
+                                <div
+                                  style={{
+                                    height: 56,
+                                    borderRadius: 9,
+                                    background:
+                                      hIdx % 2 === 0
+                                        ? "rgba(0,0,0,0.018)"
+                                        : "transparent",
+                                    border: "1px solid rgba(0,0,0,0.03)",
+                                  }}
+                                />
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* ── Legend ── */}
-        {!loading && !isEmpty && timetable && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm p-4">
-            <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 mb-3">
-              รายวิชาในตาราง ({timetable.courses.length} วิชา)
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {timetable.courses.map((course, idx) => {
-                const color = PALETTE[idx % PALETTE.length];
-                return (
-                  <div
-                    key={course.enrollment_id}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${color.bg} ${color.border}`}
-                  >
-                    <span className={`text-[12px] font-semibold ${color.text}`}>
-                      {course.course_id}
-                    </span>
-                    <span className={`text-[11px] opacity-75 ${color.text}`}>
-                      {course.course_name_th}
-                    </span>
-                    <span className={`text-[11px] opacity-60 ${color.text}`}>
-                      ({course.credits} น.)
-                    </span>
-                  </div>
-                );
-              })}
+            {/* Legend chips */}
+            <div
+              className="rounded-[18px] p-4 fade-up fade-up-3"
+              style={{
+                background: "var(--glass-bg)",
+                backdropFilter: "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
+                border: "1px solid var(--glass-border-subtle)",
+                boxShadow: "var(--glass-shadow)",
+              }}
+            >
+              <p
+                className="text-[11px] font-semibold uppercase mb-3"
+                style={{
+                  color: "var(--muted-foreground)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                รายวิชาในตาราง ({timetable?.courses.length} วิชา)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {timetable?.courses.map((course, idx) => {
+                  const p = PALETTE[idx % PALETTE.length];
+                  return (
+                    <div
+                      key={course.enrollment_id}
+                      className="flex items-center gap-2 px-3 py-2 rounded-[12px]"
+                      style={{
+                        background: p.glass,
+                        border: `1px solid ${p.border}`,
+                        boxShadow: `0 2px 8px ${p.glow}`,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: p.grad,
+                          boxShadow: `0 0 6px ${p.glow}`,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span
+                        className="text-[12px] font-bold"
+                        style={{
+                          color: "var(--foreground)",
+                          fontFamily: "var(--font-dm-mono,'DM Mono',monospace)",
+                        }}
+                      >
+                        {course.course_id}
+                      </span>
+                      <span
+                        className="text-[11px] opacity-70"
+                        style={{
+                          color: "var(--foreground)",
+                          fontFamily: "var(--font-sarabun)",
+                        }}
+                      >
+                        {course.course_name_th}
+                      </span>
+                      <span
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full ml-1"
+                        style={{
+                          background: p.glass,
+                          color: "var(--foreground)",
+                          opacity: 0.7,
+                        }}
+                      >
+                        {course.credits} น.
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
