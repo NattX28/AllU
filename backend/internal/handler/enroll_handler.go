@@ -38,10 +38,10 @@ func (h *EnrollHandler) CheckSeats(c fiber.Ctx) error {
 }
 
 func (h *EnrollHandler) Confirm(c fiber.Ctx) error {
-	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	studentID, ok := c.Locals("studentID").(uuid.UUID)
 	if !ok {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to get student ID",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "unauthorized",
 		})
 	}
 
@@ -63,10 +63,10 @@ func (h *EnrollHandler) Confirm(c fiber.Ctx) error {
 }
 
 func (h *EnrollHandler) Update(c fiber.Ctx) error {
-	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	studentID, ok := c.Locals("studentID").(uuid.UUID)
 	if !ok {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to get student ID",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "unauthorized",
 		})
 	}
 
@@ -89,10 +89,10 @@ func (h *EnrollHandler) Update(c fiber.Ctx) error {
 }
 
 func (h *EnrollHandler) Withdraw(c fiber.Ctx) error {
-	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	studentID, ok := c.Locals("studentID").(uuid.UUID)
 	if !ok {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to get student ID",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "unauthorized",
 		})
 	}
 
@@ -122,10 +122,10 @@ func (h *EnrollHandler) Withdraw(c fiber.Ctx) error {
 }
 
 func (h *EnrollHandler) GetHistory(c fiber.Ctx) error {
-	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	studentID, ok := c.Locals("studentID").(uuid.UUID)
 	if !ok {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to get student ID",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "unauthorized",
 		})
 	}
 
@@ -143,10 +143,10 @@ func (h *EnrollHandler) GetHistory(c fiber.Ctx) error {
 }
 
 func (h *EnrollHandler) GetSchedule(c fiber.Ctx) error {
-	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	studentID, ok := c.Locals("studentID").(uuid.UUID)
 	if !ok {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to get student ID",
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "unauthorized",
 		})
 	}
 

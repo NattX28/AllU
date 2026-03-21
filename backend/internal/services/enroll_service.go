@@ -374,7 +374,7 @@ func (s *EnrollService) GetSchedule(studentID uuid.UUID, semester, academicYear 
 	if err := s.db.
 		Preload("Section.Course").
 		Preload("Section.Schedules").
-		Where("student_id = ? AND status = ? AND semester = ? AND academic_year = ?",
+		Where("student_id = ? AND status IN = ? AND semester = ? AND academic_year = ?",
 			std.StudentID, []models.EnrollmentStatus{models.StatusEnrolled, models.StatusGraded}, semester, academicYear).
 		Find(&enrolls).Error; err != nil {
 		return nil, err

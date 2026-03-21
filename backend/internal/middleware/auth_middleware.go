@@ -59,7 +59,13 @@ func AuthMiddleware(c fiber.Ctx) error {
 	c.Locals("userID", uid)
 	c.Locals("role", claims.Role)
 	if claims.ProfileID != "" {
-		c.Locals("profileID", uuid.MustParse(claims.ProfileID))
+		profileUID := uuid.MustParse(claims.ProfileID)
+		switch claims.Role {
+		case "student":
+			c.Locals("studentID", profileUID)
+		case "professor":
+			c.Locals("professorID", profileUID)
+		}
 	}
 
 	return c.Next()

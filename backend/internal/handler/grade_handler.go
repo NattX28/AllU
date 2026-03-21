@@ -16,7 +16,7 @@ func NewGradeHandler(s *services.GradeService) *GradeHandler {
 }
 
 func (h *GradeHandler) GetProfessorSections(c fiber.Ctx) error {
-	profID, ok := c.Locals("profileID").(uuid.UUID)
+	profID, ok := c.Locals("professorID").(uuid.UUID)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"message": "Unauthorized",
@@ -35,7 +35,7 @@ func (h *GradeHandler) GetProfessorSections(c fiber.Ctx) error {
 }
 
 func (h *GradeHandler) SubmitGrades(c fiber.Ctx) error {
-	profID, ok := c.Locals("profileID").(uuid.UUID)
+	profID, ok := c.Locals("professorID").(uuid.UUID)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"message": "Unauthorized",
@@ -63,7 +63,7 @@ func (h *GradeHandler) SubmitGrades(c fiber.Ctx) error {
 }
 
 func (h *GradeHandler) GetClassList(c fiber.Ctx) error {
-	profID, ok := c.Locals("profileID").(uuid.UUID)
+	profID, ok := c.Locals("professorID").(uuid.UUID)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"message": "Unauthorized",
@@ -89,7 +89,7 @@ func (h *GradeHandler) GetClassList(c fiber.Ctx) error {
 }
 
 func (h *GradeHandler) GetMyGrades(c fiber.Ctx) error {
-	studentID, ok := c.Locals("profileID").(uuid.UUID)
+	studentID, ok := c.Locals("studentID").(uuid.UUID)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"message": "Unauthorized",
