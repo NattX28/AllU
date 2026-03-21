@@ -82,18 +82,48 @@ function UserModal({
     professor_id: initial?.professor?.professor_id ?? "",
     department: initial?.professor?.department ?? "",
   });
+
+  // Reset ทุกครั้งที่ modal เปิด
+  useEffect(() => {
+    if (open) {
+      setRole(initial?.role ?? "student");
+      setForm({
+        username: "",
+        email: "",
+        password: "",
+        name: initial?.name ?? "",
+        address: initial?.student?.address ?? initial?.professor?.address ?? "",
+        birthday:
+          initial?.student?.birthday ?? initial?.professor?.birthday ?? "",
+        gender: initial?.student?.gender ?? initial?.professor?.gender ?? "",
+        student_id: initial?.student?.student_id ?? "",
+        entry_year: initial?.student?.entry_year
+          ? initial.student.entry_year + 543
+          : 0,
+        year: initial?.student?.year ?? 0,
+        faculty: initial?.student?.faculty ?? initial?.professor?.faculty ?? "",
+        major: initial?.student?.major ?? "",
+        professor_id: initial?.professor?.professor_id ?? "",
+        department: initial?.professor?.department ?? "",
+      });
+    }
+  }, [open, initial]);
   const set = (k: string, v: string | number) =>
     setForm((p) => ({ ...p, [k]: v }));
 
   const handleSave = async () => {
     setSaving(true);
+    // แปลง "YYYY-MM-DD" → "YYYY-MM-DDT00:00:00Z" ที่ backend ต้องการ
+    const formatBirthday = (b: string) =>
+      b && !b.includes("T") ? `${b}T00:00:00Z` : b || undefined;
+
     try {
       if (isEdit) {
         await onSave(
           {
             name: form.name || undefined,
             address: form.address || undefined,
-            birthday: form.birthday || undefined,
+            birthday: formatBirthday(form.birthday),
             gender: form.gender || undefined,
             role,
             ...(role === "student"
@@ -121,7 +151,7 @@ function UserModal({
             name: form.name,
             role,
             address: form.address,
-            birthday: form.birthday,
+            birthday: formatBirthday(form.birthday) ?? "",
             gender: form.gender,
             ...(role === "student"
               ? {
@@ -275,13 +305,24 @@ export default function AdminUsersPage() {
     data: CreateUserRequest | UpdateUserAdminRequest,
     isEdit: boolean,
   ) => {
-    if (isEdit && editTarget)
-      await userService.updateUser(
-        editTarget.id,
-        data as UpdateUserAdminRequest,
+    try {
+      if (isEdit && editTarget)
+        await userService.updateUser(
+          editTarget.id,
+          data as UpdateUserAdminRequest,
+        );
+      else await userService.createUser(data as CreateUserRequest);
+      fetchUsers();
+    } catch (err) {
+      const e = err as {
+        response?: { data?: { error?: string } };
+        message?: string;
+      };
+      console.error("handleSave error:", e?.response?.data ?? err);
+      alert(
+        `เกิดข้อผิดพลาด: ${e?.response?.data?.error ?? e?.message ?? "unknown"}`,
       );
-    else await userService.createUser(data as CreateUserRequest);
-    fetchUsers();
+    }
   };
 
   const handleDelete = async (id: string) => {

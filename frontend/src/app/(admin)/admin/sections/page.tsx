@@ -37,16 +37,23 @@ type FlatSection = SectionResponse & { courseId: string; courseName: string };
 // ─── Professor picker ─────────────────────────────────────────
 function ProfessorPicker({
   value,
+  initialName = "",
   onChange,
 }: {
   value: string;
+  initialName?: string;
   onChange: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<GetMeResponse[]>([]);
-  const [selectedName, setSelectedName] = useState("");
+  const [selectedName, setSelectedName] = useState(initialName);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // Sync when initialName changes (e.g. modal opens with different editSection)
+  useEffect(() => {
+    setSelectedName(initialName);
+  }, [initialName]);
 
   const doSearch = useCallback(async (q: string) => {
     setLoading(true);
@@ -74,7 +81,9 @@ function ProfessorPicker({
   }, [search, open]);
 
   const handleSelect = (prof: GetMeResponse) => {
+    console.log("prof:", prof); // เพิ่มบรรทัดนี้
     const profileId = prof.professor?.profile_id ?? "";
+    console.log("profileId:", profileId); // และบรรทัดนี้
     setSelectedName(`${prof.name} (${prof.professor?.professor_id ?? ""})`);
     onChange(profileId);
     setOpen(false);
@@ -208,6 +217,7 @@ function SectionModal({
   const [saving, setSaving] = useState(false);
   const [courseId, setCourseId] = useState(editSection?.courseId ?? "");
   const [professorId, setProfessorId] = useState("");
+  const [professorName, setProfessorName] = useState("");
   const [schedules, setSchedules] = useState<ScheduleRow[]>([emptySchedule()]);
   const [form, setForm] = useState({
     section_num: editSection?.section_num ?? 1,
@@ -216,12 +226,25 @@ function SectionModal({
     capacity: editSection?.capacity ?? 40,
   });
 
-  // Reset on open
+  // Reset on open — prefill existing data when editing
   useEffect(() => {
     if (open) {
       setCourseId(editSection?.courseId ?? "");
-      setProfessorId("");
-      setSchedules([emptySchedule()]);
+      // Prefill professor from existing section
+      setProfessorId(editSection?.professor_profile_id ?? "");
+      setProfessorName(editSection?.professor_name ?? "");
+      // Prefill schedules from existing section
+      setSchedules(
+        editSection?.schedules?.length
+          ? editSection.schedules.map((s) => ({
+              day: s.day,
+              start_time: s.start_time,
+              end_time: s.end_time,
+              room: s.room,
+              type: s.type as "LECTURE" | "LAB",
+            }))
+          : [emptySchedule()],
+      );
       setForm({
         section_num: editSection?.section_num ?? 1,
         semester: editSection?.semester ?? 1,
@@ -241,6 +264,27 @@ function SectionModal({
   };
 
   const handleSave = async () => {
+    // ── Validate ──
+    if (!isEdit) {
+      if (!courseId) return alert("กรุณาเลือกวิชา");
+      if (!professorId) return alert("กรุณาเลือกอาจารย์ผู้สอน");
+      if (
+        !form.section_num ||
+        !form.semester ||
+        !form.academic_year ||
+        !form.capacity
+      )
+        return alert("กรุณากรอกข้อมูลให้ครบ");
+    }
+    // ถ้า edit และไม่ได้เปลี่ยนอาจารย์ → ไม่ต้อง validate professorId
+    const emptyRoom = schedules.find((s) => !s.room.trim());
+    if (emptyRoom)
+      return alert(
+        `กรุณากรอกห้องเรียน (${emptyRoom.day} ${emptyRoom.start_time}-${emptyRoom.end_time})`,
+      );
+    const emptyTime = schedules.find((s) => !s.start_time || !s.end_time);
+    if (emptyTime) return alert("กรุณากรอกเวลาเรียนให้ครบ");
+
     setSaving(true);
     try {
       if (isEdit) {
@@ -342,8 +386,17 @@ function SectionModal({
           <div className="relative">
             <ProfessorPicker
               value={professorId}
-              onChange={(id) => setProfessorId(id)}
+              initialName={professorName}
+              onChange={(id) => {
+                setProfessorId(id);
+                if (!id) setProfessorName("");
+              }}
             />
+            {isEdit && !professorId && professorName && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                ⚠ อาจารย์ปัจจุบัน: {professorName} — เลือกใหม่เพื่อเปลี่ยน
+              </p>
+            )}
           </div>
 
           {/* Schedules */}
@@ -467,7 +520,7 @@ function SectionModal({
           <Button
             className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px]"
             onClick={handleSave}
-            disabled={saving || (!isEdit && !courseId) || !professorId}
+            disabled={saving || (!isEdit && (!courseId || !professorId))}
           >
             {saving && <Loader2 size={13} className="animate-spin mr-1" />}
             {isEdit ? "บันทึก" : "สร้าง"}

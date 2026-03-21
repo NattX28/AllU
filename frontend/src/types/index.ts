@@ -171,6 +171,7 @@ export interface SectionResponse {
   capacity: number;
   available: number;
   professor_name: string;
+  professor_profile_id: string;
   schedules: SectionSchedule[];
 }
 

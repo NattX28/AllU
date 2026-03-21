@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/NattX28/AllU/internal/dto"
 	"github.com/NattX28/AllU/internal/models"
@@ -42,29 +41,34 @@ func (s *EnrollService) getStudent(tx *gorm.DB, studentID uuid.UUID) (*models.St
 	return &std, nil
 }
 
-func majorToAbbr(major string) string {
-	words := strings.Fields(major)
-	var abbr strings.Builder
-	for _, w := range words {
-		if len(w) > 0 {
-			abbr.WriteByte(strings.ToUpper(w)[0])
-		}
-	}
-	return abbr.String()
-}
-
-// checkMajorPermission returns error if course is not open for the student's major.
-func checkMajorPermission(course models.Course, major string) error {
+// checkMajorPermission returns error if course is not open for the student.
+// Logic: GENED/ELECTIVE → open to all
+//
+//	CORE_COURSE    → course_id prefix (4 chars) must match student faculty+dept code
+//	                 student_id: YY FF DD NNNN EEE → FF DD = slice(2,6)
+//	                 course_id:  FF DD xxxxx       → slice(0,4)
+func checkMajorPermission(course models.Course, studentID string) error {
 	if course.Category == models.ElectiveCourse || course.Category == models.GenEdCourse {
 		return nil
 	}
-	if major == "admin" {
+	if studentID == "" {
 		return nil
 	}
 
-	abbr := majorToAbbr(major) // "Computer Science" → "CS"
-	if !strings.HasSuffix(strings.TrimSpace(course.NameEn), abbr) {
-		return fmt.Errorf("course %s is not open for major %s", course.NameEn, major)
+	// Extract faculty+dept from student_id (pos 2-5, 4 chars)
+	if len(studentID) < 6 {
+		return nil // student_id ไม่ครบ → ผ่านไปก่อน
+	}
+	studentFacultyDept := studentID[2:6] // เช่น "6702011611230" → "0201"
+
+	// Extract faculty+dept from course_id (pos 0-3, 4 chars)
+	if len(course.ID) < 4 {
+		return nil
+	}
+	courseFacultyDept := course.ID[0:4] // เช่น "040613105" → "0406"
+
+	if courseFacultyDept != studentFacultyDept {
+		return fmt.Errorf("course %s is not open for your department", course.ID)
 	}
 	return nil
 }
@@ -82,6 +86,44 @@ func mapSchedules(schedules []models.SectionSchedule) []dto.ScheduleSlot {
 		})
 	}
 	return slots
+}
+
+// timeToMinutes converts "09:00" → 540
+func timeToMinutes(t string) int {
+	var h, m int
+	fmt.Sscanf(t, "%d:%d", &h, &m)
+	return h*60 + m
+}
+
+// checkScheduleConflict returns error if any two schedules overlap on the same day.
+// sections is the full list of sections being enrolled (including existing ones).
+func checkScheduleConflict(sections []models.Section) error {
+	type slot struct {
+		courseID string
+		start    int
+		end      int
+	}
+	// day → list of slots
+	daySlots := make(map[string][]slot)
+
+	for _, sec := range sections {
+		for _, sch := range sec.Schedules {
+			day := string(sch.Day)
+			start := timeToMinutes(sch.StartTime)
+			end := timeToMinutes(sch.EndTime)
+			for _, existing := range daySlots[day] {
+				// overlap: start < existing.end && end > existing.start
+				if start < existing.end && end > existing.start {
+					return fmt.Errorf(
+						"schedule conflict on %s: %s overlaps with %s (%s-%s)",
+						day, sec.CourseID, existing.courseID, sch.StartTime, sch.EndTime,
+					)
+				}
+			}
+			daySlots[day] = append(daySlots[day], slot{courseID: sec.CourseID, start: start, end: end})
+		}
+	}
+	return nil
 }
 
 // ─── Seat Check ────
@@ -124,20 +166,26 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 		}
 
 		// Validate all sections first before touching Redis
+		var sectionsToEnroll []models.Section
 		for _, sidStr := range sectionIDs {
 			sid, _ := uuid.Parse(sidStr)
 			var sec models.Section
-			if err := tx.Preload("Course").First(&sec, "id = ?", sid).Error; err != nil {
+			if err := tx.Preload("Course").Preload("Schedules").First(&sec, "id = ?", sid).Error; err != nil {
 				return fmt.Errorf("section not found: %s", sidStr)
 			}
-			if err := checkMajorPermission(sec.Course, std.Major); err != nil {
+			if err := checkMajorPermission(sec.Course, std.StudentID); err != nil {
 				return err
 			}
 			totalCredits += sec.Course.Credits
+			sectionsToEnroll = append(sectionsToEnroll, sec)
 		}
 
 		if totalCredits > 22 {
 			return fmt.Errorf("total credits exceed limit: %d (max 22)", totalCredits)
+		}
+
+		if err := checkScheduleConflict(sectionsToEnroll); err != nil {
+			return err
 		}
 
 		// Decrement seats and save enrollments
@@ -219,23 +267,43 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 
 		// Validate new sections and total credits
 		var totalCredits int
+		var sectionsToCheck []models.Section
+
+		// Include graded sections that are NOT being replaced (they stay in schedule)
+		for sidStr, en := range oldMap {
+			if en.Status == models.StatusGraded && !newMap[sidStr] {
+				var sec models.Section
+				tx.Preload("Schedules").First(&sec, "id = ?", en.SectionID)
+				sectionsToCheck = append(sectionsToCheck, sec)
+				totalCredits += en.Section.Course.Credits
+			}
+		}
+
 		for _, sidStr := range newSids {
 			var sec models.Section
-			if err := tx.Preload("Course").First(&sec, "id = ?", sidStr).Error; err != nil {
+			if err := tx.Preload("Course").Preload("Schedules").First(&sec, "id = ?", sidStr).Error; err != nil {
 				return fmt.Errorf("section %s not found", sidStr)
 			}
-			if err := checkMajorPermission(sec.Course, std.Major); err != nil {
+			if err := checkMajorPermission(sec.Course, std.StudentID); err != nil {
 				return err
 			}
 			totalCredits += sec.Course.Credits
+			sectionsToCheck = append(sectionsToCheck, sec)
 		}
 
 		if totalCredits > 22 {
 			return fmt.Errorf("total credits exceed limit: %d (max 22)", totalCredits)
 		}
 
-		// Remove enrollments no longer in new list
+		if err := checkScheduleConflict(sectionsToCheck); err != nil {
+			return err
+		}
+
+		// Remove enrolled (not graded) enrollments no longer in new list
 		for sidStr, en := range oldMap {
+			if en.Status == models.StatusGraded {
+				continue // graded ไม่แตะ — เกรดออกแล้วลบไม่ได้
+			}
 			if !newMap[sidStr] {
 				s.rdb.Incr(ctx, fmt.Sprintf("section:%s:seats", sidStr))
 				tx.Unscoped().Delete(&en)
@@ -244,10 +312,13 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 			}
 		}
 
-		// Add new enrollments
+		// Add new enrollments (skip if already exists as graded)
 		for sidStr := range newMap {
-			if _, exists := oldMap[sidStr]; exists {
-				continue
+			if existing, exists := oldMap[sidStr]; exists {
+				if existing.Status == models.StatusGraded {
+					continue // graded อยู่แล้ว ไม่ต้อง insert ซ้ำ
+				}
+				continue // enrolled อยู่แล้ว ไม่ต้อง insert ซ้ำ
 			}
 
 			key := fmt.Sprintf("section:%s:seats", sidStr)
@@ -309,7 +380,8 @@ func (s *EnrollService) GetHistory(studentID uuid.UUID, semester, academicYear i
 	}
 
 	query := s.db.Preload("Section.Course").
-		Where("student_id = ?", std.StudentID)
+		Where("student_id = ? AND status IN ?", std.StudentID,
+			[]models.EnrollmentStatus{models.StatusEnrolled, models.StatusGraded})
 
 	if semester > 0 {
 		query = query.Where("semester = ?", semester)

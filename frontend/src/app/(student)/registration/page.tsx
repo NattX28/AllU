@@ -211,20 +211,80 @@ export default function RegistrationPage() {
   };
 
   // ── Course filtering ──
-  const major = me?.student?.major ?? "";
+  // หมายเหตุ: ไม่ filter ตาม major ที่ frontend เพราะ backend เป็น source of truth
+  // ถ้า student ลงวิชาที่ไม่ใช่ major ตัวเอง backend จะ reject พร้อม error message
+  // Helper: check if a section's schedules conflict with any already-in-cart or enrolled sections
+  const hasTimeConflict = (sec: SectionResponse): string | null => {
+    // Collect all active schedules: cart + enrolled (graded/enrolled)
+    const activeSchedules: Array<{
+      day: string;
+      start: number;
+      end: number;
+      label: string;
+    }> = [];
 
-  // Helper: same logic as backend checkMajorPermission
+    const toMin = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + (m || 0);
+    };
+
+    // From cart
+    cart.forEach((item) => {
+      item.section.schedules.forEach((sch) => {
+        activeSchedules.push({
+          day: sch.day,
+          start: toMin(sch.start_time),
+          end: toMin(sch.end_time),
+          label: item.course.id,
+        });
+      });
+    });
+
+    // From enrolled schedule (graded + enrolled)
+    schedule?.courses.forEach((c) => {
+      c.schedules.forEach((sch) => {
+        activeSchedules.push({
+          day: sch.day,
+          start: toMin(sch.start_time),
+          end: toMin(sch.end_time),
+          label: c.course_id,
+        });
+      });
+    });
+
+    // Check new section against active
+    for (const newSch of sec.schedules) {
+      const newStart = toMin(newSch.start_time);
+      const newEnd = toMin(newSch.end_time);
+      for (const existing of activeSchedules) {
+        if (
+          existing.day === newSch.day &&
+          newStart < existing.end &&
+          newEnd > existing.start
+        ) {
+          return `เวลาทับกับวิชา ${existing.label} (${newSch.day} ${newSch.start_time}-${newSch.end_time})`;
+        }
+      }
+    }
+    return null;
+  };
+
+  // ── Course filtering ──
+  const major = me?.student?.major ?? "";
+  // student_id 13 หลัก spec: YY FF DD NNNN EEE
+  //   pos 2-3 = faculty code (FF), pos 4-5 = dept code (DD)
+  //   → facultyDept = slice(2,6) เช่น "6702011611230" → "0201"
+  // course_id: FF DD xxxxx
+  //   → 4 หลักแรก = faculty+dept เช่น "040613105" → "0406"
+  const facultyDeptCode = me?.student?.student_id?.slice(2, 6) ?? "";
+
   const isCourseAllowed = (course: CourseResponse): boolean => {
-    const cat = course.category?.toLowerCase() ?? "";
-    // elective และ gened เปิดให้ทุกคน
-    if (cat === "elective" || cat === "gened") return true;
-    // major course — ชื่อวิชาต้องลงท้ายด้วย abbr ของ major
-    if (!major) return true; // ยังไม่โหลด me → แสดงไว้ก่อน
-    const abbr = major
-      .split(" ")
-      .map((w) => w[0]?.toUpperCase() ?? "")
-      .join("");
-    return course.name_en.trimEnd().endsWith(abbr);
+    const cat = course.category?.toUpperCase() ?? "";
+    // GENED และ ELECTIVE เปิดให้ทุกคน
+    if (cat === "GENED_COURSE" || cat === "ELECTIVE_COURSE") return true;
+    // CORE_COURSE — faculty+dept 4 หลักแรกของ course_id ต้องตรงกับของ student
+    if (!facultyDeptCode) return true; // ยังไม่โหลด me → แสดงไว้ก่อน
+    return course.id.startsWith(facultyDeptCode);
   };
 
   // Only show courses that have at least one section in the active period AND allowed for this major
@@ -389,11 +449,13 @@ export default function RegistrationPage() {
                           const inCart = cart.some(
                             (c) => c.section.id === sec.id,
                           );
-                          // วิชาเดียวกันอยู่ใน cart แล้ว (คนละ section)
                           const courseInCart =
                             !inCart &&
                             cart.some((c) => c.course.id === course.id);
-                          // Show schedule summary
+                          const conflict =
+                            !inCart && !isEnrolled
+                              ? hasTimeConflict(sec)
+                              : null;
                           const scheduleStr = sec.schedules
                             .map(
                               (s) =>
@@ -403,57 +465,70 @@ export default function RegistrationPage() {
                           return (
                             <div
                               key={sec.id}
-                              className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2 text-[12px]"
+                              className={`flex flex-col gap-1 bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2 text-[12px] ${conflict ? "border border-amber-200 dark:border-amber-800/40" : ""}`}
                             >
-                              <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300 flex-1 min-w-0">
-                                <span className="font-medium whitespace-nowrap">
-                                  Sec {sec.section_num}
-                                </span>
-                                <span className="truncate text-slate-400">
-                                  {scheduleStr || "—"}
-                                </span>
-                                <span className="whitespace-nowrap">
-                                  {sec.professor_name}
-                                </span>
-                                <span
-                                  className={`whitespace-nowrap ${
-                                    sec.available === 0
-                                      ? "text-red-500 font-medium"
-                                      : "text-emerald-600"
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300 flex-1 min-w-0">
+                                  <span className="font-medium whitespace-nowrap">
+                                    Sec {sec.section_num}
+                                  </span>
+                                  <span className="truncate text-slate-400">
+                                    {scheduleStr || "—"}
+                                  </span>
+                                  <span className="whitespace-nowrap">
+                                    {sec.professor_name}
+                                  </span>
+                                  <span
+                                    className={`whitespace-nowrap ${
+                                      sec.available === 0
+                                        ? "text-red-500 font-medium"
+                                        : "text-emerald-600"
+                                    }`}
+                                  >
+                                    {sec.available}/{sec.capacity} ที่นั่ง
+                                  </span>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant={inCart ? "secondary" : "default"}
+                                  className={`h-7 text-[11px] ml-3 shrink-0 ${
+                                    !inCart &&
+                                    !courseInCart &&
+                                    !isEnrolled &&
+                                    !conflict
+                                      ? "bg-[#AC3520] hover:bg-[#922d1a] text-white"
+                                      : ""
                                   }`}
+                                  disabled={
+                                    inCart ||
+                                    courseInCart ||
+                                    sec.available === 0 ||
+                                    isEnrolled ||
+                                    !!conflict
+                                  }
+                                  onClick={() => addToCart(course, sec)}
                                 >
-                                  {sec.available}/{sec.capacity} ที่นั่ง
-                                </span>
+                                  {inCart ? (
+                                    "อยู่ในตะกร้า"
+                                  ) : isEnrolled ? (
+                                    "ลงแล้ว"
+                                  ) : courseInCart ? (
+                                    "เลือก Sec อื่นแล้ว"
+                                  ) : conflict ? (
+                                    "เวลาทับ"
+                                  ) : (
+                                    <>
+                                      <Plus size={12} className="mr-1" />
+                                      เพิ่ม
+                                    </>
+                                  )}
+                                </Button>
                               </div>
-                              <Button
-                                size="sm"
-                                variant={inCart ? "secondary" : "default"}
-                                className={`h-7 text-[11px] ml-3 shrink-0 ${
-                                  !inCart && !courseInCart && !isEnrolled
-                                    ? "bg-[#AC3520] hover:bg-[#922d1a] text-white"
-                                    : ""
-                                }`}
-                                disabled={
-                                  inCart ||
-                                  courseInCart ||
-                                  sec.available === 0 ||
-                                  isEnrolled
-                                }
-                                onClick={() => addToCart(course, sec)}
-                              >
-                                {inCart ? (
-                                  "อยู่ในตะกร้า"
-                                ) : isEnrolled ? (
-                                  "ลงแล้ว"
-                                ) : courseInCart ? (
-                                  "เลือก Sec อื่นแล้ว"
-                                ) : (
-                                  <>
-                                    <Plus size={12} className="mr-1" />
-                                    เพิ่ม
-                                  </>
-                                )}
-                              </Button>
+                              {conflict && (
+                                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                                  ⚠ {conflict}
+                                </p>
+                              )}
                             </div>
                           );
                         })}

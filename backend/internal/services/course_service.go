@@ -135,7 +135,6 @@ func (s *CourseService) CreateSection(req dto.CreateSectionRequest) error {
 			return err
 		}
 
-		// Create schedules
 		for _, sch := range req.Schedules {
 			schedule := models.SectionSchedule{
 				SectionID: newSection.ID,
@@ -150,7 +149,6 @@ func (s *CourseService) CreateSection(req dto.CreateSectionRequest) error {
 			}
 		}
 
-		// Sync seats to Redis
 		ctx := context.Background()
 		key := fmt.Sprintf("section:%s:seats", newSection.ID)
 		if err := s.rdb.Set(ctx, key, newSection.Capacity, 0).Err(); err != nil {
@@ -189,7 +187,6 @@ func (s *CourseService) UpdateSection(id uuid.UUID, req dto.UpdateSectionRequest
 			return err
 		}
 
-		// Replace schedules if sent
 		if len(req.Schedules) > 0 {
 			if err := tx.Where("section_id = ?", id).Delete(&models.SectionSchedule{}).Error; err != nil {
 				return fmt.Errorf("failed to clear old schedules: %w", err)
@@ -225,7 +222,6 @@ func (s *CourseService) UpdateSection(id uuid.UUID, req dto.UpdateSectionRequest
 
 func (s *CourseService) DeleteSection(id uuid.UUID) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// Delete schedules first
 		if err := tx.Where("section_id = ?", id).Delete(&models.SectionSchedule{}).Error; err != nil {
 			return fmt.Errorf("failed to delete schedules: %w", err)
 		}
@@ -246,7 +242,11 @@ func (s *CourseService) GetAllCourses() ([]dto.CourseResponse, error) {
 	var courses []models.Course
 	ctx := context.Background()
 
-	err := s.db.Preload("Sections.Professor.User").Preload("Sections.Schedules").Find(&courses).Error
+	err := s.db.
+		Preload("Sections", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("Schedules")
+		}).
+		Find(&courses).Error
 	if err != nil {
 		return nil, err
 	}
@@ -272,8 +272,9 @@ func (s *CourseService) GetCourseByID(id string) (*dto.CourseDetailResponse, err
 
 	err := s.db.
 		Preload("Prerequisites").
-		Preload("Sections.Professor.User").
-		Preload("Sections.Schedules").
+		Preload("Sections", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("Schedules")
+		}).
 		First(&course, "id = ?", id).Error
 	if err != nil {
 		return nil, err
@@ -303,6 +304,30 @@ func (s *CourseService) GetCourseByID(id string) (*dto.CourseDetailResponse, err
 // ─── Helper ───
 
 func (s *CourseService) mapSections(ctx context.Context, sections []models.Section) []dto.SectionResponse {
+	if len(sections) == 0 {
+		return nil
+	}
+
+	// รวบรวม professor IDs ที่ไม่ซ้ำกัน
+	profIDSet := make(map[uuid.UUID]struct{})
+	for _, sec := range sections {
+		profIDSet[sec.ProfessorID] = struct{}{}
+	}
+	profIDs := make([]uuid.UUID, 0, len(profIDSet))
+	for id := range profIDSet {
+		profIDs = append(profIDs, id)
+	}
+
+	// Query professors ทั้งหมดในครั้งเดียว
+	var profs []models.Professor
+	s.db.Preload("User").Where("id IN ?", profIDs).Find(&profs)
+
+	// Map สำหรับ lookup
+	profMap := make(map[uuid.UUID]models.Professor, len(profs))
+	for _, p := range profs {
+		profMap[p.ID] = p
+	}
+
 	var result []dto.SectionResponse
 	for _, sec := range sections {
 		key := fmt.Sprintf("section:%s:seats", sec.ID)
@@ -310,6 +335,8 @@ func (s *CourseService) mapSections(ctx context.Context, sections []models.Secti
 		if err != nil {
 			available = sec.Capacity - sec.Enrolled
 		}
+
+		prof := profMap[sec.ProfessorID]
 
 		var schedules []dto.ScheduleResponse
 		for _, sch := range sec.Schedules {
@@ -324,14 +351,15 @@ func (s *CourseService) mapSections(ctx context.Context, sections []models.Secti
 		}
 
 		result = append(result, dto.SectionResponse{
-			ID:            sec.ID,
-			SectionNum:    sec.SectionNum,
-			Semester:      sec.Semester,
-			AcademicYear:  sec.AcademicYear,
-			Capacity:      sec.Capacity,
-			Available:     available,
-			ProfessorName: sec.Professor.User.Name,
-			Schedules:     schedules,
+			ID:                 sec.ID,
+			SectionNum:         sec.SectionNum,
+			Semester:           sec.Semester,
+			AcademicYear:       sec.AcademicYear,
+			Capacity:           sec.Capacity,
+			Available:          available,
+			ProfessorName:      prof.User.Name,
+			ProfessorProfileID: sec.ProfessorID.String(),
+			Schedules:          schedules,
 		})
 	}
 	return result

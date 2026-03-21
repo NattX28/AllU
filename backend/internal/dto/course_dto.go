@@ -71,14 +71,15 @@ type UpdateSectionRequest struct {
 }
 
 type SectionResponse struct {
-	ID            uuid.UUID          `json:"id"`
-	SectionNum    int                `json:"section_num"`
-	Semester      int                `json:"semester"`
-	AcademicYear  int                `json:"academic_year"`
-	Capacity      int                `json:"capacity"`
-	Available     int                `json:"available"` // From Redis
-	ProfessorName string             `json:"professor_name"`
-	Schedules     []ScheduleResponse `json:"schedules"`
+	ID                 uuid.UUID          `json:"id"`
+	SectionNum         int                `json:"section_num"`
+	Semester           int                `json:"semester"`
+	AcademicYear       int                `json:"academic_year"`
+	Capacity           int                `json:"capacity"`
+	Available          int                `json:"available"` // From Redis
+	ProfessorName      string             `json:"professor_name"`
+	ProfessorProfileID string             `json:"professor_profile_id"` // professors.id UUID
+	Schedules          []ScheduleResponse `json:"schedules"`
 }
 
 // ─── Course Response ───
