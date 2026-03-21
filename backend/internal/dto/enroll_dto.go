@@ -35,17 +35,22 @@ type WithdrawRequest struct {
 // ─── History (result registration page) ───
 
 type EnrollmentHistoryItem struct {
-	EnrollmentID string  `json:"enrollment_id"`
-	CourseID     string  `json:"course_id"`
-	CourseNameTh string  `json:"course_name_th"`
-	CourseNameEn string  `json:"course_name_en"`
-	Credits      int     `json:"credits"`
-	SectionNum   int     `json:"section_num"`
-	Status       string  `json:"status"`
-	Semester     int     `json:"semester"`
-	AcademicYear int     `json:"academic_year"`
-	TotalScore   float64 `json:"total_score"`
-	Grade        string  `json:"grade"`
+	EnrollmentID    string   `json:"enrollment_id"`
+	CourseID        string   `json:"course_id"`
+	CourseNameTh    string   `json:"course_name_th"`
+	CourseNameEn    string   `json:"course_name_en"`
+	Credits         int      `json:"credits"`
+	SectionNum      int      `json:"section_num"`
+	Status          string   `json:"status"`
+	Semester        int      `json:"semester"`
+	AcademicYear    int      `json:"academic_year"`
+	AssignScore     float64  `json:"assign_score"`
+	AttendanceScore *float64 `json:"attendance_score,omitempty"`
+	AssignmentScore *float64 `json:"assignment_score,omitempty"`
+	MidtermScore    *float64 `json:"midterm_score,omitempty"`
+	FinalScore      *float64 `json:"final_score,omitempty"`
+	TotalScore      float64  `json:"total_score"`
+	Grade           string   `json:"grade"`
 }
 
 type EnrollmentHistoryResponse struct {

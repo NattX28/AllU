@@ -8,6 +8,8 @@ import type {
   CourseResponse,
   SectionResponse,
   CheckSeatsResponse,
+  EnrollmentPeriodResponse,
+  TimetableResponse,
 } from "@/types";
 import ProtectedLayout from "@/components/layout/ProtectedLayout";
 import {
@@ -17,10 +19,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  CalendarX,
+  CheckCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import dayjs from "dayjs";
 
 const MAX_CREDITS = 22;
 
@@ -29,9 +34,38 @@ interface CartItem {
   section: SectionResponse;
 }
 
+// ─── Closed Period UI ────────────────────────────────────────
+function ClosedPeriod() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+      <CalendarX size={52} className="mb-4 opacity-30" />
+      <p className="text-[18px] font-semibold text-slate-600 dark:text-slate-300">
+        ปิดรับลงทะเบียน
+      </p>
+      <p className="text-[13px] mt-2 text-center max-w-sm leading-relaxed">
+        ขณะนี้ไม่อยู่ในช่วงเวลาลงทะเบียนเรียน
+        <br />
+        กรุณาตรวจสอบปฏิทินการศึกษาหรือติดต่อสำนักทะเบียน
+      </p>
+    </div>
+  );
+}
+
+// ─── Main ────────────────────────────────────────────────────
 export default function RegistrationPage() {
   const { accessToken, isLoading } = useAuth();
+
+  // Period gate state
+  const [periodLoading, setPeriodLoading] = useState(true);
+  const [period, setPeriod] = useState<
+    EnrollmentPeriodResponse | null | undefined
+  >(
+    undefined, // undefined = not yet loaded
+  );
+
+  // Registration state
   const [courses, setCourses] = useState<CourseResponse[]>([]);
+  const [schedule, setSchedule] = useState<TimetableResponse | null>(null);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [seats, setSeats] = useState<Record<string, CheckSeatsResponse>>({});
@@ -39,11 +73,42 @@ export default function RegistrationPage() {
   const [confirmResult, setConfirmResult] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
+  // ── Step 1: Load active period ──
   useEffect(() => {
     if (isLoading || !accessToken) return;
-    courseService.getAll().then(setCourses).catch(console.error);
+    const load = async () => {
+      setPeriodLoading(true);
+      try {
+        const p = await enrollService.getActivePeriod();
+        setPeriod(p ?? null);
+      } catch {
+        setPeriod(null);
+      } finally {
+        setPeriodLoading(false);
+      }
+    };
+    load();
   }, [isLoading, accessToken]);
 
+  // ── Step 2: Load courses & current schedule (only when period is active) ──
+  const loadRegistrationData = useCallback(
+    async (p: EnrollmentPeriodResponse) => {
+      const [allCourses, currentSchedule] = await Promise.all([
+        courseService.getAll(),
+        enrollService.getSchedule(p.semester, p.academic_year),
+      ]);
+      setCourses(allCourses);
+      setSchedule(currentSchedule);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!period) return;
+    loadRegistrationData(period).catch(console.error);
+  }, [period, loadRegistrationData]);
+
+  // ── Seat polling ──
   const pollSeats = useCallback(async () => {
     if (cart.length === 0) return;
     const ids = cart.map((i) => i.section.id);
@@ -66,6 +131,12 @@ export default function RegistrationPage() {
     };
   }, [pollSeats]);
 
+  // ── Cart helpers ──
+  const enrolledIds = new Set(schedule?.courses.map((c) => c.course_id) ?? []);
+  const enrolledSectionMap = new Map(
+    schedule?.courses.map((c) => [c.course_id, c]) ?? [],
+  );
+
   const addToCart = (course: CourseResponse, section: SectionResponse) => {
     if (cart.find((c) => c.section.id === section.id)) return;
     setCart((prev) => [...prev, { course, section }]);
@@ -74,15 +145,48 @@ export default function RegistrationPage() {
     setCart((prev) => prev.filter((c) => c.section.id !== sectionId));
   const totalCredits = cart.reduce((sum, c) => sum + c.course.credits, 0);
 
+  // ── Withdraw ──
+  const handleWithdraw = async (enrollmentId: string, courseId: string) => {
+    if (!confirm(`ถอนวิชา ${courseId} ออกจากตารางเรียน?`)) return;
+    try {
+      await enrollService.withdraw(enrollmentId);
+      // Refresh schedule
+      if (period) {
+        const updated = await enrollService.getSchedule(
+          period.semester,
+          period.academic_year,
+        );
+        setSchedule(updated);
+      }
+    } catch {
+      alert("เกิดข้อผิดพลาด กรุณาลองใหม่");
+    }
+  };
+
+  // ── Confirm or Update ──
   const handleConfirm = async () => {
     setConfirming(true);
     setConfirmResult(null);
+    const isFirstTime = !schedule || schedule.courses.length === 0;
     try {
-      const res = await enrollService.confirm(cart.map((c) => c.section.id));
-      setConfirmResult(
-        `✅ ลงทะเบียนสำเร็จ ${res.enrolled_ids.length} วิชา (${res.total_credits} หน่วยกิต)`,
-      );
+      if (isFirstTime) {
+        const res = await enrollService.confirm(cart.map((c) => c.section.id));
+        setConfirmResult(
+          `✅ ลงทะเบียนสำเร็จ ${res.enrolled_ids.length} วิชา (${res.total_credits} หน่วยกิต)`,
+        );
+      } else {
+        await enrollService.update(cart.map((c) => c.section.id));
+        setConfirmResult("✅ อัปเดตการลงทะเบียนสำเร็จ");
+      }
       setCart([]);
+      // Refresh schedule
+      if (period) {
+        const updated = await enrollService.getSchedule(
+          period.semester,
+          period.academic_year,
+        );
+        setSchedule(updated);
+      }
     } catch {
       setConfirmResult("❌ เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
@@ -90,211 +194,398 @@ export default function RegistrationPage() {
     }
   };
 
-  const filtered = courses.filter(
+  // Only show courses that have at least one section in the active period
+  const periodCourses = courses.filter((c) =>
+    c.sections?.some(
+      (s) =>
+        s.semester === period?.semester &&
+        s.academic_year === period?.academic_year,
+    ),
+  );
+
+  const filtered = periodCourses.filter(
     (c) =>
       c.id.toLowerCase().includes(search.toLowerCase()) ||
       c.name_en.toLowerCase().includes(search.toLowerCase()) ||
       c.name_th.includes(search),
   );
 
+  const isFirstTime = !schedule || schedule.courses.length === 0;
+
+  // ─── Loading state ───────────────────────────────────────
+  if (isLoading || periodLoading || period === undefined) {
+    return (
+      <ProtectedLayout
+        title="ลงทะเบียนเรียน"
+        subtitle="ตรวจสอบรอบการลงทะเบียน..."
+        allowedRoles={["student"]}
+      >
+        <main className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 text-slate-400">
+            <div className="w-8 h-8 border-2 border-slate-200 border-t-[#AC3520] rounded-full animate-spin" />
+            <p className="text-[13px]">กำลังโหลด...</p>
+          </div>
+        </main>
+      </ProtectedLayout>
+    );
+  }
+
+  // ─── Period closed ────────────────────────────────────────
+  if (period === null) {
+    return (
+      <ProtectedLayout
+        title="ลงทะเบียนเรียน"
+        subtitle="ไม่อยู่ในช่วงรับลงทะเบียน"
+        allowedRoles={["student"]}
+      >
+        <main className="flex-1 overflow-y-auto p-6">
+          <ClosedPeriod />
+        </main>
+      </ProtectedLayout>
+    );
+  }
+
+  // ─── Period open ──────────────────────────────────────────
+  const endDate = dayjs(period.end_date).format("DD/MM/YYYY");
+
   return (
     <ProtectedLayout
       title="ลงทะเบียนเรียน"
-      subtitle="เพิ่มวิชาลงตะกร้า แล้วยืนยันพร้อมกัน"
+      subtitle={`ภาค ${period.semester}/${period.academic_year} — ปิดรับลงทะเบียน: ${endDate}`}
       allowedRoles={["student"]}
     >
-      <main className="flex-1 overflow-hidden flex gap-4 p-6">
-        {/* ── Left: Course Search ── */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-700/60">
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <Input
-                placeholder="ค้นหารหัสวิชา หรือชื่อวิชา..."
-                className="pl-9 h-10"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+      <main className="flex-1 overflow-hidden flex flex-col gap-4 p-6">
+        {/* Period info banner */}
+        <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-4 py-2.5 text-[13px] text-emerald-700 dark:text-emerald-400">
+          <CheckCheck size={15} className="shrink-0" />
+          <span>
+            เปิดรับลงทะเบียน ภาค {period.semester}/{period.academic_year} —
+            ปิดรับ {endDate}
+          </span>
+        </div>
+
+        <div className="flex-1 overflow-hidden flex gap-4">
+          {/* ── Left: Course Browser ── */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-700/60 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
+                  วิชาที่เปิดรับลงทะเบียน
+                </p>
+                <span className="text-[12px] text-slate-400">
+                  {filtered.length === periodCourses.length
+                    ? `${periodCourses.length} วิชา`
+                    : `${filtered.length} / ${periodCourses.length} วิชา`}
+                </span>
+              </div>
+              <div className="relative">
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <Input
+                  placeholder="ค้นหารหัสวิชา หรือชื่อวิชา..."
+                  className="pl-9 h-10"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/40">
-            {filtered.map((course) => (
-              <div key={course.id} className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <span className="font-semibold text-slate-800 dark:text-slate-100 text-[14px]">
-                      {course.id}
-                    </span>
-                    <Badge variant="outline" className="ml-2 text-[11px]">
-                      {course.credits} หน่วยกิต
-                    </Badge>
-                    <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      {course.name_th} / {course.name_en}
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  {(course.sections ?? []).map((sec) => {
-                    const inCart = cart.some((c) => c.section.id === sec.id);
-                    return (
-                      <div
-                        key={sec.id}
-                        className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2 text-[12px]"
-                      >
-                        <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300">
-                          <span className="font-medium">
-                            Sec {sec.section_num}
-                          </span>
-                          <span>{sec.study_time}</span>
-                          <span>{sec.professor_name}</span>
-                          <span
-                            className={
-                              sec.available === 0
-                                ? "text-red-500 font-medium"
-                                : "text-emerald-600"
-                            }
-                          >
-                            {sec.available}/{sec.capacity} ที่นั่ง
+
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/40">
+              {filtered.map((course) => {
+                const isEnrolled = enrolledIds.has(course.id);
+                const enrolledEntry = enrolledSectionMap.get(course.id);
+                return (
+                  <div key={course.id} className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <span className="font-semibold text-slate-800 dark:text-slate-100 text-[14px]">
+                          {course.id}
+                        </span>
+                        <Badge variant="outline" className="ml-2 text-[11px]">
+                          {course.credits} หน่วยกิต
+                        </Badge>
+                        {isEnrolled && (
+                          <Badge className="ml-1.5 text-[11px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 hover:bg-emerald-100">
+                            ลงทะเบียนแล้ว
+                          </Badge>
+                        )}
+                        <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {course.name_th} / {course.name_en}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Enrolled section — show withdraw button */}
+                    {isEnrolled && enrolledEntry && (
+                      <div className="mb-2 flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/40 rounded-lg px-3 py-2 text-[12px]">
+                        <div className="flex items-center gap-3 text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 size={14} />
+                          <span>
+                            Sec {enrolledEntry.section_num} — ลงทะเบียนอยู่แล้ว
                           </span>
                         </div>
                         <Button
                           size="sm"
-                          variant={inCart ? "secondary" : "default"}
-                          className={`h-7 text-[11px] ${!inCart ? "bg-[#AC3520] hover:bg-[#922d1a] text-white" : ""}`}
-                          disabled={inCart || sec.available === 0}
-                          onClick={() => addToCart(course, sec)}
+                          variant="outline"
+                          className="h-7 text-[11px] text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 gap-1"
+                          onClick={() =>
+                            handleWithdraw(
+                              enrolledEntry.enrollment_id,
+                              course.id,
+                            )
+                          }
                         >
-                          {inCart ? (
-                            "อยู่ในตะกร้า"
-                          ) : (
-                            <>
-                              <Plus size={12} className="mr-1" />
-                              เพิ่ม
-                            </>
-                          )}
+                          <Trash2 size={11} /> ถอนวิชา
                         </Button>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-            {filtered.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                <Search size={32} className="mb-3 opacity-30" />
-                <p className="text-[13px]">ไม่พบวิชาที่ค้นหา</p>
-              </div>
-            )}
-          </div>
-        </div>
+                    )}
 
-        {/* ── Right: Cart ── */}
-        <div className="w-80 flex flex-col gap-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
-              <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[14px]">
-                ตะกร้าลงทะเบียน
-              </h3>
-              <span
-                className={`text-[12px] font-medium ${totalCredits > MAX_CREDITS ? "text-red-500" : "text-slate-500"}`}
-              >
-                {totalCredits}/{MAX_CREDITS} หน่วยกิต
-              </span>
-            </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-700/40 min-h-[80px]">
-              {cart.length === 0 && (
-                <p className="text-center text-[12px] text-slate-400 py-6">
-                  ยังไม่มีวิชาในตะกร้า
-                </p>
-              )}
-              {cart.map((item) => {
-                const seatInfo = seats[item.section.id];
-                const isFull = seatInfo?.is_full ?? false;
-                return (
-                  <div
-                    key={item.section.id}
-                    className={`px-4 py-3 ${isFull ? "bg-red-50 dark:bg-red-900/10" : ""}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-[13px] text-slate-800 dark:text-slate-100 truncate">
-                          {item.course.id} Sec {item.section.section_num}
-                        </p>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {item.course.name_th}
-                        </p>
-                        {isFull && (
-                          <p className="text-[11px] text-red-500 flex items-center gap-1 mt-0.5">
-                            <AlertCircle size={11} /> ที่นั่งเต็ม
-                          </p>
-                        )}
-                        {seatInfo && !isFull && (
-                          <p className="text-[11px] text-emerald-600 flex items-center gap-1 mt-0.5">
-                            <CheckCircle2 size={11} /> ว่าง {seatInfo.available}{" "}
-                            ที่
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => removeFromCart(item.section.id)}
-                        className="text-slate-400 hover:text-red-500 flex-shrink-0 mt-0.5"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                    {/* Available sections */}
+                    <div className="space-y-1.5">
+                      {(course.sections ?? [])
+                        .filter(
+                          (sec) =>
+                            sec.semester === period.semester &&
+                            sec.academic_year === period.academic_year,
+                        )
+                        .map((sec) => {
+                          const inCart = cart.some(
+                            (c) => c.section.id === sec.id,
+                          );
+                          // Show schedule summary
+                          const scheduleStr = sec.schedules
+                            .map(
+                              (s) =>
+                                `${s.day} ${s.start_time}-${s.end_time} (${s.room})`,
+                            )
+                            .join(", ");
+                          return (
+                            <div
+                              key={sec.id}
+                              className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2 text-[12px]"
+                            >
+                              <div className="flex items-center gap-4 text-slate-600 dark:text-slate-300 flex-1 min-w-0">
+                                <span className="font-medium whitespace-nowrap">
+                                  Sec {sec.section_num}
+                                </span>
+                                <span className="truncate text-slate-400">
+                                  {scheduleStr || "—"}
+                                </span>
+                                <span className="whitespace-nowrap">
+                                  {sec.professor_name}
+                                </span>
+                                <span
+                                  className={`whitespace-nowrap ${
+                                    sec.available === 0
+                                      ? "text-red-500 font-medium"
+                                      : "text-emerald-600"
+                                  }`}
+                                >
+                                  {sec.available}/{sec.capacity} ที่นั่ง
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant={inCart ? "secondary" : "default"}
+                                className={`h-7 text-[11px] ml-3 shrink-0 ${
+                                  !inCart
+                                    ? "bg-[#AC3520] hover:bg-[#922d1a] text-white"
+                                    : ""
+                                }`}
+                                disabled={
+                                  inCart || sec.available === 0 || isEnrolled
+                                }
+                                onClick={() => addToCart(course, sec)}
+                              >
+                                {inCart ? (
+                                  "อยู่ในตะกร้า"
+                                ) : isEnrolled ? (
+                                  "ลงแล้ว"
+                                ) : (
+                                  <>
+                                    <Plus size={12} className="mr-1" />
+                                    เพิ่ม
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 );
               })}
-            </div>
-            {cart.length > 0 && (
-              <div className="px-4 pb-2">
-                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mt-2">
-                  <div
-                    className={`h-1.5 rounded-full transition-all ${totalCredits > MAX_CREDITS ? "bg-red-500" : "bg-[#AC3520]"}`}
-                    style={{
-                      width: `${Math.min((totalCredits / MAX_CREDITS) * 100, 100)}%`,
-                    }}
-                  />
+              {filtered.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                  <Search size={32} className="mb-3 opacity-30" />
+                  <p className="text-[13px]">ไม่พบวิชาที่ค้นหา</p>
                 </div>
-              </div>
-            )}
-            <div className="p-4 pt-3 border-t border-slate-100 dark:border-slate-700/60">
-              <Button
-                className="w-full bg-[#AC3520] hover:bg-[#922d1a] text-white h-10 font-medium"
-                disabled={
-                  cart.length === 0 ||
-                  totalCredits > MAX_CREDITS ||
-                  confirming ||
-                  cart.some((c) => seats[c.section.id]?.is_full)
-                }
-                onClick={handleConfirm}
-              >
-                {confirming ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 size={14} className="animate-spin" />{" "}
-                    กำลังยืนยัน...
-                  </span>
-                ) : (
-                  `ยืนยันลงทะเบียน (${cart.length} วิชา)`
-                )}
-              </Button>
-              {totalCredits > MAX_CREDITS && (
-                <p className="text-[11px] text-red-500 text-center mt-2">
-                  ⚠ หน่วยกิตเกิน {MAX_CREDITS} หน่วยกิต
-                </p>
               )}
             </div>
           </div>
-          {confirmResult && (
-            <div
-              className={`rounded-xl border px-4 py-3 text-[13px] ${confirmResult.startsWith("✅") ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-red-50 border-red-200 text-red-600"}`}
-            >
-              {confirmResult}
+
+          {/* ── Right: Cart ── */}
+          <div className="w-80 flex flex-col gap-4">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
+                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[14px]">
+                  ตะกร้าลงทะเบียน
+                </h3>
+                <span
+                  className={`text-[12px] font-medium ${
+                    totalCredits > MAX_CREDITS
+                      ? "text-red-500"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {totalCredits}/{MAX_CREDITS} หน่วยกิต
+                </span>
+              </div>
+
+              <div className="divide-y divide-slate-100 dark:divide-slate-700/40 min-h-[80px]">
+                {cart.length === 0 && (
+                  <p className="text-center text-[12px] text-slate-400 py-6">
+                    ยังไม่มีวิชาในตะกร้า
+                  </p>
+                )}
+                {cart.map((item) => {
+                  const seatInfo = seats[item.section.id];
+                  const isFull = seatInfo?.is_full ?? false;
+                  return (
+                    <div
+                      key={item.section.id}
+                      className={`px-4 py-3 ${isFull ? "bg-red-50 dark:bg-red-900/10" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-[13px] text-slate-800 dark:text-slate-100 truncate">
+                            {item.course.id} Sec {item.section.section_num}
+                          </p>
+                          <p className="text-[11px] text-slate-400 truncate">
+                            {item.course.name_th}
+                          </p>
+                          {isFull && (
+                            <p className="text-[11px] text-red-500 flex items-center gap-1 mt-0.5">
+                              <AlertCircle size={11} /> ที่นั่งเต็ม
+                            </p>
+                          )}
+                          {seatInfo && !isFull && (
+                            <p className="text-[11px] text-emerald-600 flex items-center gap-1 mt-0.5">
+                              <CheckCircle2 size={11} /> ว่าง{" "}
+                              {seatInfo.available} ที่
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => removeFromCart(item.section.id)}
+                          className="text-slate-400 hover:text-red-500 flex-shrink-0 mt-0.5"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {cart.length > 0 && (
+                <div className="px-4 pb-2">
+                  <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mt-2">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${
+                        totalCredits > MAX_CREDITS
+                          ? "bg-red-500"
+                          : "bg-[#AC3520]"
+                      }`}
+                      style={{
+                        width: `${Math.min((totalCredits / MAX_CREDITS) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="p-4 pt-3 border-t border-slate-100 dark:border-slate-700/60">
+                <Button
+                  className="w-full bg-[#AC3520] hover:bg-[#922d1a] text-white h-10 font-medium"
+                  disabled={
+                    cart.length === 0 ||
+                    totalCredits > MAX_CREDITS ||
+                    confirming ||
+                    cart.some((c) => seats[c.section.id]?.is_full)
+                  }
+                  onClick={handleConfirm}
+                >
+                  {confirming ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 size={14} className="animate-spin" />
+                      กำลังยืนยัน...
+                    </span>
+                  ) : isFirstTime ? (
+                    `ยืนยันลงทะเบียน (${cart.length} วิชา)`
+                  ) : (
+                    `อัปเดตการลงทะเบียน (${cart.length} วิชา)`
+                  )}
+                </Button>
+                {totalCredits > MAX_CREDITS && (
+                  <p className="text-[11px] text-red-500 text-center mt-2">
+                    ⚠ หน่วยกิตเกิน {MAX_CREDITS} หน่วยกิต
+                  </p>
+                )}
+              </div>
             </div>
-          )}
+
+            {/* Currently enrolled courses */}
+            {schedule && schedule.courses.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/60">
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[13px]">
+                    วิชาที่ลงทะเบียนอยู่ ({schedule.courses.length} วิชา)
+                  </h3>
+                </div>
+                <div className="divide-y divide-slate-100 dark:divide-slate-700/40">
+                  {schedule.courses.map((c) => (
+                    <div
+                      key={c.enrollment_id}
+                      className="px-4 py-2.5 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="text-[12px] font-medium text-slate-700 dark:text-slate-200">
+                          {c.course_id} Sec {c.section_num}
+                        </p>
+                        <p className="text-[11px] text-slate-400 truncate max-w-[160px]">
+                          {c.course_name_th}
+                        </p>
+                      </div>
+                      <button
+                        className="text-slate-400 hover:text-red-500 transition-colors"
+                        onClick={() =>
+                          handleWithdraw(c.enrollment_id, c.course_id)
+                        }
+                        title="ถอนวิชา"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {confirmResult && (
+              <div
+                className={`rounded-xl border px-4 py-3 text-[13px] ${
+                  confirmResult.startsWith("✅")
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400"
+                    : "bg-red-50 border-red-200 text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"
+                }`}
+              >
+                {confirmResult}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </ProtectedLayout>

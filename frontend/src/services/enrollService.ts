@@ -1,11 +1,14 @@
-import api from "@/lib/axios"
+import api from "@/lib/axios";
 import type {
   CheckSeatsResponse,
   ConfirmEnrollResponse,
-  EnrolledCourseResponse,
-} from "@/types"
+  TimetableResponse,
+  EnrollmentHistoryResponse,
+  EnrollmentPeriodResponse,
+} from "@/types";
 
 export const enrollService = {
+  // ─── Seat Check ────
   checkSeats: (sectionIds: string[]) =>
     api
       .get<CheckSeatsResponse[]>("/enroll/check-seats", {
@@ -13,6 +16,7 @@ export const enrollService = {
       })
       .then((r) => r.data),
 
+  // ─── Confirm (first time) ───
   confirm: (sectionIds: string[]) =>
     api
       .post<ConfirmEnrollResponse>("/enroll/confirm", {
@@ -20,18 +24,48 @@ export const enrollService = {
       })
       .then((r) => r.data),
 
-  updateSchedule: (newSectionIds: string[]) =>
+  // ─── Update (already confirmed) ───
+  update: (sectionIds: string[]) =>
     api
-      .patch("/enroll/update-schedule", { new_section_ids: newSectionIds })
+      .patch("/enroll/update", { section_ids: sectionIds })
       .then((r) => r.data),
 
-  withdraw: (sectionId: string) =>
+  // ─── Withdraw (by enrollment_id) ──
+  withdraw: (enrollmentId: string) =>
     api
-      .delete("/enroll/withdraw", { data: { section_id: sectionId } })
+      .delete("/enroll/withdraw", { data: { enrollment_id: enrollmentId } })
       .then((r) => r.data),
 
-  getMyEnrollments: (mode: "all" | "current" | "history" = "all") =>
+  // ─── Active Enrollment Period ────
+  getActivePeriod: (): Promise<EnrollmentPeriodResponse | null> =>
     api
-      .get<EnrolledCourseResponse[]>("/enroll/my", { params: { mode } })
+      .get<{
+        data: EnrollmentPeriodResponse | null;
+      }>("/enrollment-period/active")
+      .then((r) => r.data.data),
+
+  // ─── Timetable (schedule page) ───
+  getSchedule: (
+    semester: number,
+    academicYear: number,
+  ): Promise<TimetableResponse> =>
+    api
+      .get<TimetableResponse>("/enroll/schedule", {
+        params: { semester, academic_year: academicYear },
+      })
       .then((r) => r.data),
-}
+
+  // ─── History (grades/registration result page) ────
+  getHistory: (
+    semester?: number,
+    academicYear?: number,
+  ): Promise<EnrollmentHistoryResponse> =>
+    api
+      .get<EnrollmentHistoryResponse>("/enroll/history", {
+        params: {
+          ...(semester !== undefined && { semester }),
+          ...(academicYear !== undefined && { academic_year: academicYear }),
+        },
+      })
+      .then((r) => r.data),
+};

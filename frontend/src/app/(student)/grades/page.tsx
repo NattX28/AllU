@@ -1,11 +1,11 @@
-// ─── grades/page.tsx ─────────────────────────────────────────────────────────
 "use client";
 
 import { useEffect, useState } from "react";
-import { gradeService } from "@/services/gradeService";
-import type { MyGradesResponse } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { enrollService } from "@/services/enrollService";
+import type { EnrollmentHistoryResponse, EnrollmentHistoryItem } from "@/types";
 import ProtectedLayout from "@/components/layout/ProtectedLayout";
-import { TrendingUp } from "lucide-react";
+import { BookOpen, TrendingUp } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -13,7 +13,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/contexts/AuthContext";
+
+// ─── Constants ───────────────────────────────────────────────
+const CURRENT_YEAR = new Date().getFullYear() + 543;
+const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 2 + i);
+
+const STATUS_BADGE: Record<string, string> = {
+  enrolled:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400",
+  graded: "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400",
+  withdrawn:
+    "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400",
+};
+const STATUS_LABEL: Record<string, string> = {
+  enrolled: "ลงทะเบียนแล้ว",
+  graded: "ได้เกรดแล้ว",
+  withdrawn: "ถอนแล้ว",
+};
 
 const GRADE_COLOR: Record<string, string> = {
   A: "text-emerald-600 font-bold",
@@ -28,163 +44,160 @@ const GRADE_COLOR: Record<string, string> = {
   I: "text-slate-400",
 };
 
-function SummaryCard({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border px-5 py-4 shadow-sm ${highlight ? "bg-[#AC3520] border-[#AC3520] text-white" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700/60"}`}
-    >
-      <p
-        className={`text-[12px] ${highlight ? "text-white/70" : "text-slate-400"}`}
-      >
-        {label}
-      </p>
-      <p
-        className={`text-2xl font-bold mt-1 ${highlight ? "text-white" : "text-slate-800 dark:text-slate-100"}`}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
+type Tab = "courses" | "scores";
 
+// ─── Component ───────────────────────────────────────────────
 export default function GradesPage() {
-  const { accessToken, isLoading } = useAuth(); // ← เพิ่ม
-  const [allGrades, setAllGrades] = useState<MyGradesResponse[]>([]);
-  const [selectedIdx, setSelectedIdx] = useState<number>(0);
+  const { accessToken, isLoading } = useAuth();
+  const [year, setYear] = useState(CURRENT_YEAR);
+  const [semester, setSemester] = useState(1);
+  const [tab, setTab] = useState<Tab>("courses");
+  const [history, setHistory] = useState<EnrollmentHistoryResponse | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isLoading || !accessToken) return; // ← รอ token ก่อน
-    gradeService
-      .getMyGrades(0, 0)
-      .then((data) => {
-        // API ส่ง object เดี่ยวมา ต้องห่อเป็น array
-        const arr = Array.isArray(data) ? data : data ? [data] : [];
-        setAllGrades(arr);
-      })
-      .catch(console.error);
-  }, [isLoading, accessToken]);
+    if (isLoading || !accessToken) return;
+    const fetch = async () => {
+      setLoading(true);
+      try {
+        const data = await enrollService.getHistory(semester, year);
+        setHistory(data);
+        console.log(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch();
+  }, [isLoading, accessToken, semester, year]);
 
-  const current = allGrades[selectedIdx] ?? null; // ← กัน undefined
+  const courses = history?.courses ?? [];
+  const activeCourses = courses.filter(
+    (c) => c.status === "enrolled" || c.status === "graded",
+  );
+  const totalCredits = activeCourses.reduce((sum, c) => sum + c.credits, 0);
 
   return (
     <ProtectedLayout
-      title="ผลการเรียน"
-      subtitle="ประวัติเกรดทุกภาคการศึกษา"
+      title="ผลการลงทะเบียน"
+      subtitle="ประวัติการลงทะเบียนและคะแนน"
       allowedRoles={["student"]}
     >
-      <main className="flex-1 overflow-y-auto p-6 space-y-6">
-        <div className="flex items-center gap-4">
+      <main className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* ── Controls ── */}
+        <div className="flex items-center gap-3 flex-wrap">
           <Select
-            value={String(selectedIdx)}
-            onValueChange={(v) => setSelectedIdx(Number(v))}
+            value={String(year)}
+            onValueChange={(v) => setYear(Number(v))}
           >
-            <SelectTrigger className="w-64 h-10">
-              <SelectValue placeholder="เลือกภาคการศึกษา" />
+            <SelectTrigger className="w-40 h-10">
+              <SelectValue placeholder="ปีการศึกษา" />
             </SelectTrigger>
             <SelectContent>
-              {allGrades.map(
-                (
-                  g,
-                  i, // ← ไม่พังแล้วเพราะ allGrades เริ่มเป็น []
-                ) => (
-                  <SelectItem key={i} value={String(i)}>
-                    ภาค {g.semester}/{g.academic_year}
-                  </SelectItem>
-                ),
-              )}
+              {YEAR_OPTIONS.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  ปีการศึกษา {y}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+            {[1, 2, 3].map((s) => (
+              <button
+                key={s}
+                onClick={() => setSemester(s)}
+                className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${
+                  semester === s
+                    ? "bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                }`}
+              >
+                ภาค {s}
+              </button>
+            ))}
+          </div>
         </div>
-        {current ? (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <SummaryCard
-                label="GPA ประจำเทอม"
-                value={current.term_gpa.toFixed(2)}
-                highlight
-              />
-              <SummaryCard
-                label="หน่วยกิตรวม"
-                value={`${current.total_credits} หน่วยกิต`}
-              />
-              <SummaryCard
-                label="จำนวนวิชา"
-                value={`${current.courses.length} วิชา`}
-              />
+
+        {/* ── Tabs ── */}
+        <div className="flex border-b border-slate-200 dark:border-slate-700/60">
+          {(["courses", "scores"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-5 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
+                tab === t
+                  ? "border-[#AC3520] text-[#AC3520]"
+                  : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              }`}
+            >
+              {t === "courses" ? "รายวิชาที่ลงทะเบียน" : "คะแนน"}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Content ── */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <div className="w-8 h-8 border-2 border-slate-200 border-t-[#AC3520] rounded-full animate-spin mb-3" />
+              <p className="text-[13px]">กำลังโหลด...</p>
             </div>
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700/60">
-                <h2 className="font-semibold text-slate-800 dark:text-slate-100 text-[15px]">
-                  ภาคการศึกษาที่ {current.semester}/{current.academic_year}
-                </h2>
-              </div>
+          ) : courses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <BookOpen size={40} className="mb-3 opacity-30" />
+              <p className="text-[14px] font-medium">ไม่มีข้อมูลการลงทะเบียน</p>
+              <p className="text-[12px] mt-1 opacity-70">
+                ภาค {semester} ปีการศึกษา {year}
+              </p>
+            </div>
+          ) : tab === "courses" ? (
+            <>
               <div className="overflow-x-auto">
                 <table className="w-full text-[13px]">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-800/50">
-                      {[
-                        "รหัสวิชา",
-                        "ชื่อวิชา",
-                        "หน่วยกิต",
-                        "เข้าเรียน",
-                        "งาน",
-                        "กลางภาค",
-                        "ปลายภาค",
-                        "รวม",
-                        "เกรด",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-3 text-left text-slate-500 dark:text-slate-400 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
+                      {["รหัสวิชา", "ตอน", "ชื่อวิชา", "หน่วยกิต", "สถานะ"].map(
+                        (h) => (
+                          <th
+                            key={h}
+                            className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap"
+                          >
+                            {h}
+                          </th>
+                        ),
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
-                    {current.courses.map((c) => (
+                    {courses.map((c) => (
                       <tr
-                        key={c.course_id}
+                        key={c.enrollment_id}
                         className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
                       >
-                        <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">
+                        <td className="px-4 py-3 font-medium font-mono text-slate-800 dark:text-slate-100">
                           {c.course_id}
                         </td>
+                        <td className="px-4 py-3 text-center text-slate-500">
+                          {c.section_num}
+                        </td>
                         <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                          {c.course_name}
+                          <p className="font-medium">{c.course_name_th}</p>
+                          <p className="text-[11px] text-slate-400">
+                            {c.course_name_en}
+                          </p>
                         </td>
                         <td className="px-4 py-3 text-center text-slate-500">
                           {c.credits}
                         </td>
-                        <td className="px-4 py-3 text-center text-slate-500">
-                          {c.attendance ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-500">
-                          {c.assignment ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-500">
-                          {c.midterm ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-500">
-                          {c.final ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-center text-slate-700 dark:text-slate-200 font-medium">
-                          {c.total.toFixed(1)}
-                        </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3">
                           <span
-                            className={GRADE_COLOR[c.grade] ?? "text-slate-600"}
+                            className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_BADGE[c.status] ?? "bg-slate-100 text-slate-500"}`}
                           >
-                            {c.grade || "—"}
+                            {STATUS_LABEL[c.status] ?? c.status}
                           </span>
                         </td>
                       </tr>
@@ -192,15 +205,104 @@ export default function GradesPage() {
                   </tbody>
                 </table>
               </div>
+              {/* Footer */}
+              <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700/40 flex items-center gap-4 text-[12px] text-slate-500">
+                <span>รวม {activeCourses.length} รายวิชา</span>
+                <span className="text-slate-300 dark:text-slate-600">|</span>
+                <span>{totalCredits} หน่วยกิต</span>
+                <span className="text-[11px] text-slate-400">
+                  (นับเฉพาะวิชาที่ enrolled และ graded)
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full table-fixed min-w-[720px] text-[13px]">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50">
+                    <th className="px-4 py-3 w-[120px] text-left">รหัสวิชา</th>
+                    <th className="px-4 py-3 w-[220px] text-left">ชื่อวิชา</th>
+
+                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
+                      เข้าเรียน
+                    </th>
+                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
+                      งาน
+                    </th>
+                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
+                      กลางภาค
+                    </th>
+                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
+                      ปลายภาค
+                    </th>
+                    <th className="px-4 py-3 w-[90px] text-center tabular-nums">
+                      รวม
+                    </th>
+                    <th className="px-4 py-3 w-[70px] text-center">เกรด</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
+                  {courses.map((c) => (
+                    <ScoreRow key={c.enrollment_id} course={c} />
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-            <TrendingUp size={40} className="mb-3 opacity-30" />
-            <p>ยังไม่มีข้อมูลผลการเรียน</p>
-          </div>
-        )}
+          )}
+        </div>
       </main>
     </ProtectedLayout>
+  );
+}
+
+// ─── Score Row sub-component ─────────────────────────────────
+// Uses EnrollmentHistoryItem which has total_score & grade at top level
+// Attendance/assignment/midterm/final are not in EnrollmentHistoryItem per the DTO,
+// so they display "—". If the backend later adds them they'll show up.
+function ScoreRow({ course }: { course: EnrollmentHistoryItem }) {
+  const fmt = (v: number | undefined | null) =>
+    v != null ? v.toFixed(1) : "—";
+
+  return (
+    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+      <td className="px-4 py-3 font-medium font-mono text-slate-800 dark:text-slate-100">
+        {course.course_id}
+      </td>
+
+      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+        <p className="font-medium truncate">{course.course_name_th}</p>
+        <p className="text-[11px] text-slate-400 truncate">
+          {course.course_name_en}
+        </p>
+      </td>
+
+      <td className="px-4 py-3 text-center tabular-nums">
+        {fmt(course.attendance_score)}
+      </td>
+      <td className="px-4 py-3 text-center tabular-nums">
+        {fmt(course.assignment_score)}
+      </td>
+      <td className="px-4 py-3 text-center tabular-nums">
+        {fmt(course.midterm_score)}
+      </td>
+      <td className="px-4 py-3 text-center tabular-nums">
+        {fmt(course.final_score)}
+      </td>
+
+      <td className="px-4 py-3 text-center tabular-nums font-medium text-slate-700 dark:text-slate-200">
+        {fmt(course.total_score)}
+      </td>
+
+      <td className="px-4 py-3 text-center">
+        <span
+          className={
+            GRADE_COLOR[course.grade] ?? "text-slate-600 dark:text-slate-300"
+          }
+        >
+          {course.grade || "—"}
+        </span>
+      </td>
+    </tr>
   );
 }

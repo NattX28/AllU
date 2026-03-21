@@ -26,9 +26,9 @@ interface NavItem {
 
 const studentNav: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "ลงทะเบียน", href: "/registration", icon: BookOpen },
   { label: "ตารางเรียน", href: "/schedule", icon: CalendarDays },
-  { label: "ผลการเรียน", href: "/grades", icon: GraduationCap },
+  { label: "ผลการลงทะเบียน", href: "/grades", icon: GraduationCap },
+  { label: "ลงทะเบียน", href: "/registration", icon: BookOpen },
   { label: "โปรไฟล์", href: "/profile", icon: User },
 ];
 

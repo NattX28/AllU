@@ -329,17 +329,21 @@ func (s *EnrollService) GetHistory(studentID uuid.UUID, semester, academicYear i
 			totalCredits += en.Section.Course.Credits
 		}
 		items = append(items, dto.EnrollmentHistoryItem{
-			EnrollmentID: en.ID.String(),
-			CourseID:     en.Section.Course.ID,
-			CourseNameTh: en.Section.Course.NameTh,
-			CourseNameEn: en.Section.Course.NameEn,
-			Credits:      en.Section.Course.Credits,
-			SectionNum:   en.Section.SectionNum,
-			Status:       string(en.Status),
-			Semester:     en.Semester,
-			AcademicYear: en.AcademicYear,
-			TotalScore:   en.TotalScore,
-			Grade:        en.LetterGrade,
+			EnrollmentID:    en.ID.String(),
+			CourseID:        en.Section.Course.ID,
+			CourseNameTh:    en.Section.Course.NameTh,
+			CourseNameEn:    en.Section.Course.NameEn,
+			Credits:         en.Section.Course.Credits,
+			SectionNum:      en.Section.SectionNum,
+			Status:          string(en.Status),
+			Semester:        en.Semester,
+			AcademicYear:    en.AcademicYear,
+			AttendanceScore: en.AttendanceScore,
+			AssignmentScore: en.AssignmentScore,
+			MidtermScore:    en.MidtermScore,
+			FinalScore:      en.FinalScore,
+			TotalScore:      en.TotalScore,
+			Grade:           en.LetterGrade,
 		})
 	}
 
@@ -371,7 +375,7 @@ func (s *EnrollService) GetSchedule(studentID uuid.UUID, semester, academicYear 
 		Preload("Section.Course").
 		Preload("Section.Schedules").
 		Where("student_id = ? AND status = ? AND semester = ? AND academic_year = ?",
-			std.StudentID, models.StatusEnrolled, semester, academicYear).
+			std.StudentID, []models.EnrollmentStatus{models.StatusEnrolled, models.StatusGraded}, semester, academicYear).
 		Find(&enrolls).Error; err != nil {
 		return nil, err
 	}
