@@ -126,6 +126,27 @@ func checkScheduleConflict(sections []models.Section) error {
 	return nil
 }
 
+// ─── Seed ────
+
+// SeedSeatsFromDB syncs Redis seat counters from DB.
+// Call this once on app startup to ensure Redis is consistent with DB.
+func (s *EnrollService) SeedSeatsFromDB() error {
+	ctx := context.Background()
+	var sections []models.Section
+	if err := s.db.Find(&sections).Error; err != nil {
+		return fmt.Errorf("SeedSeatsFromDB: %w", err)
+	}
+	for _, sec := range sections {
+		key := fmt.Sprintf("section:%s:seats", sec.ID.String())
+		available := sec.Capacity - sec.Enrolled
+		if available < 0 {
+			available = 0
+		}
+		s.rdb.Set(ctx, key, available, 0)
+	}
+	return nil
+}
+
 // ─── Seat Check ────
 
 func (s *EnrollService) CheckDraftSeats(sectionIDs []string) ([]dto.CheckSeatsResponse, error) {
@@ -136,7 +157,17 @@ func (s *EnrollService) CheckDraftSeats(sectionIDs []string) ([]dto.CheckSeatsRe
 		key := fmt.Sprintf("section:%s:seats", sid)
 		val, err := s.rdb.Get(ctx, key).Int()
 		if err != nil {
-			val = 0
+			// Redis miss → fallback to DB and re-seed the key
+			var sec models.Section
+			if dbErr := s.db.First(&sec, "id = ?", sid).Error; dbErr != nil {
+				val = 0
+			} else {
+				val = sec.Capacity - sec.Enrolled
+				if val < 0 {
+					val = 0
+				}
+				s.rdb.Set(ctx, key, val, 0)
+			}
 		}
 		results = append(results, dto.CheckSeatsResponse{
 			SectionID: sid,
@@ -156,7 +187,6 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 	}
 
 	ctx := context.Background()
-	var processedIDs []string
 	var totalCredits int
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -165,7 +195,7 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 			return err
 		}
 
-		// Validate all sections first before touching Redis
+		// Validate all sections first before touching anything
 		var sectionsToEnroll []models.Section
 		for _, sidStr := range sectionIDs {
 			sid, _ := uuid.Parse(sidStr)
@@ -188,20 +218,26 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 			return err
 		}
 
-		// Decrement seats and save enrollments
+		// Check seats and save enrollments — DB is source of truth
 		for _, sidStr := range sectionIDs {
 			sid, _ := uuid.Parse(sidStr)
-			key := fmt.Sprintf("section:%s:seats", sidStr)
 
-			remaining, _ := s.rdb.Decr(ctx, key).Result()
-			if remaining < 0 {
-				s.rdb.Incr(ctx, key)
+			// Lock row in DB
+			var sec models.Section
+			if err := tx.Set("gorm:query_option", "FOR UPDATE").
+				First(&sec, "id = ?", sid).Error; err != nil {
+				return fmt.Errorf("section not found: %s", sidStr)
+			}
+			if sec.Enrolled >= sec.Capacity {
 				return fmt.Errorf("section %s is full", sidStr)
 			}
-			processedIDs = append(processedIDs, sidStr)
 
-			var sec models.Section
-			tx.First(&sec, "id = ?", sid)
+			// DB update
+			tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
+
+			// Redis update
+			key := fmt.Sprintf("section:%s:seats", sidStr)
+			s.rdb.Decr(ctx, key)
 
 			if err := tx.Create(&models.Enrollment{
 				StudentID:    std.StudentID,
@@ -212,18 +248,12 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 			}).Error; err != nil {
 				return err
 			}
-
-			tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		// Rollback Redis seats that were already decremented
-		for _, sidStr := range processedIDs {
-			s.rdb.Incr(ctx, fmt.Sprintf("section:%s:seats", sidStr))
-		}
 		return nil, err
 	}
 
@@ -305,10 +335,11 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 				continue // graded ไม่แตะ — เกรดออกแล้วลบไม่ได้
 			}
 			if !newMap[sidStr] {
-				s.rdb.Incr(ctx, fmt.Sprintf("section:%s:seats", sidStr))
 				tx.Unscoped().Delete(&en)
 				tx.Model(&models.Section{}).Where("id = ?", en.SectionID).
 					Update("enrolled", gorm.Expr("enrolled - 1"))
+				// Redis sync (best effort)
+				s.rdb.Incr(ctx, fmt.Sprintf("section:%s:seats", sidStr))
 			}
 		}
 
@@ -323,16 +354,24 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 
 			sid, _ := uuid.Parse(sidStr)
 
+			// Lock row — DB ตัดสิน
+			var sec models.Section
+			if err := tx.Set("gorm:query_option", "FOR UPDATE").
+				First(&sec, "id = ?", sid).Error; err != nil {
+				return fmt.Errorf("section %s not found", sidStr)
+			}
+			if sec.Enrolled >= sec.Capacity {
+				return fmt.Errorf("section %s is full", sidStr)
+			}
+
 			// ตรวจสอบ withdrawn enrollment ที่ยังอยู่ใน DB (soft-deleted หรือ status=withdrawn)
 			// ถ้าเจอ ให้ reactivate แทนการ INSERT ใหม่ เพื่อป้องกัน duplicate key
 			var existingWithdrawn models.Enrollment
-			err := tx.Unscoped().
+			dbErr := tx.Unscoped().
 				Where("student_id = ? AND section_id = ?", std.StudentID, sid).
 				First(&existingWithdrawn).Error
-			if err == nil {
+			if dbErr == nil {
 				// มี record อยู่แล้ว (withdrawn/soft-deleted) → reactivate แทน INSERT
-				var sec models.Section
-				tx.First(&sec, "id = ?", sid)
 				existingWithdrawn.DeletedAt = gorm.DeletedAt{} // clear soft delete
 				existingWithdrawn.Status = models.StatusEnrolled
 				existingWithdrawn.Semester = sec.Semester
@@ -340,36 +379,21 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 				if err := tx.Unscoped().Save(&existingWithdrawn).Error; err != nil {
 					return err
 				}
-				key := fmt.Sprintf("section:%s:seats", sidStr)
-				remaining, _ := s.rdb.Decr(ctx, key).Result()
-				if remaining < 0 {
-					s.rdb.Incr(ctx, key)
-					return fmt.Errorf("section %s is full", sidStr)
+			} else {
+				if err := tx.Create(&models.Enrollment{
+					StudentID:    std.StudentID,
+					SectionID:    sid,
+					Status:       models.StatusEnrolled,
+					Semester:     sec.Semester,
+					AcademicYear: sec.AcademicYear,
+				}).Error; err != nil {
+					return err
 				}
-				tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
-				continue
 			}
 
-			key := fmt.Sprintf("section:%s:seats", sidStr)
-			remaining, _ := s.rdb.Decr(ctx, key).Result()
-			if remaining < 0 {
-				s.rdb.Incr(ctx, key)
-				return fmt.Errorf("section %s is full", sidStr)
-			}
-
-			var sec models.Section
-			tx.First(&sec, "id = ?", sid)
-
-			if err := tx.Create(&models.Enrollment{
-				StudentID:    std.StudentID,
-				SectionID:    sid,
-				Status:       models.StatusEnrolled,
-				Semester:     sec.Semester,
-				AcademicYear: sec.AcademicYear,
-			}).Error; err != nil {
-				return err
-			}
 			tx.Model(&sec).Update("enrolled", gorm.Expr("enrolled + 1"))
+			// Redis sync (best effort)
+			s.rdb.Decr(ctx, fmt.Sprintf("section:%s:seats", sidStr))
 		}
 
 		return nil

@@ -68,6 +68,10 @@ func Start(db *gorm.DB, rdb *redis.Client) {
 	enrollService := services.NewEnrollService(db, rdb)
 	enrollHandler := handler.NewEnrollHandler(enrollService)
 
+	if err := enrollService.SeedSeatsFromDB(); err != nil {
+		log.Fatal("failed to seed seats:", err)
+	}
+
 	// Enrollment Period
 	enrollmentPeriodService := services.NewEnrollmentPeriodService(db)
 	enrollmentPeriodHandler := handler.NewEnrollmentPeriodHandler(enrollmentPeriodService)
