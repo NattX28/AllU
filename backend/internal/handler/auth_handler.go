@@ -47,8 +47,10 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	c.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    res.RefreshToken,
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
 		HTTPOnly: true,
-		SameSite: "Lax",
+		Secure:   true,
+		SameSite: "None",
 	})
 
 	return c.Status(200).JSON(dto.LoginResponse{
@@ -100,7 +102,7 @@ func (h *AuthHandler) Refresh(c fiber.Ctx) error {
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
 		HTTPOnly: true,
 		Secure:   true,
-		SameSite: "Lax",
+		SameSite: "None",
 	})
 
 	return c.JSON(fiber.Map{"token": accessToken})
