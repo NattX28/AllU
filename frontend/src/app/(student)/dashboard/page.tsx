@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { userService } from "@/services/userService"
 import { enrollService } from "@/services/enrollService"
 import type { GetMeResponse, TimetableResponse, TimetableCourse } from "@/types"
@@ -9,7 +9,7 @@ import { GraduationCap, BookOpen, TrendingUp } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 
 // ── การตั้งค่าพื้นฐานของตาราง ─────────────────────────────────────
-const DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI"] as const
+const DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const
 type Day = (typeof DAY_ORDER)[number]
 const DAY_SHORT: Record<Day, string> = {
   MON: "จ",
@@ -17,6 +17,8 @@ const DAY_SHORT: Record<Day, string> = {
   WED: "พ",
   THU: "พฤ",
   FRI: "ศ",
+  SAT: "ส",
+  SUN: "อา",
 }
 const DAY_LABEL: Record<Day, string> = {
   MON: "จันทร์",
@@ -24,118 +26,161 @@ const DAY_LABEL: Record<Day, string> = {
   WED: "พุธ",
   THU: "พฤหัสบดี",
   FRI: "ศุกร์",
+  SAT: "เสาร์",
+  SUN: "อาทิตย์",
 }
 
-const START_HOUR = 8
-const END_HOUR = 18
+const START_HOUR = 7 // ขยายเวลาเริ่มเป็น 7 โมงเช้า
+const END_HOUR = 20 // ขยายเวลาจบเป็น 2 ทุ่ม
 const HOURS = Array.from(
   { length: END_HOUR - START_HOUR },
   (_, i) => START_HOUR + i,
 )
 const COL_W = 56
 
-const DAY_PALETTE: Record<
+// พาเลทสีอิงตามวัน (ไล่เฉดเมื่อมีหลายวิชา) แบบเดียวกับหน้า Schedule
+const DAY_PALETTES: Record<
   Day,
   Array<{ grad: string; glow: string; border: string; shine: string }>
 > = {
   MON: [
     {
-      grad: "linear-gradient(135deg,#f59e0b,#fbbf24)",
-      glow: "rgba(245,158,11,0.3)",
+      grad: "linear-gradient(145deg,#f59e0b,#fbbf24)",
+      glow: "rgba(245,158,11,0.32)",
       border: "rgba(245,158,11,0.4)",
-      shine: "rgba(252,211,77,0.25)",
+      shine: "rgba(252,211,77,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#d97706,#f59e0b)",
-      glow: "rgba(217,119,6,0.3)",
+      grad: "linear-gradient(145deg,#d97706,#f59e0b)",
+      glow: "rgba(217,119,6,0.32)",
       border: "rgba(217,119,6,0.4)",
-      shine: "rgba(245,158,11,0.2)",
+      shine: "rgba(251,191,36,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#b45309,#d97706)",
-      glow: "rgba(180,83,9,0.3)",
+      grad: "linear-gradient(145deg,#b45309,#d97706)",
+      glow: "rgba(180,83,9,0.32)",
       border: "rgba(180,83,9,0.4)",
-      shine: "rgba(217,119,6,0.2)",
+      shine: "rgba(245,158,11,0.28)",
     },
   ],
   TUE: [
     {
-      grad: "linear-gradient(135deg,#ec4899,#f472b6)",
-      glow: "rgba(236,72,153,0.3)",
+      grad: "linear-gradient(145deg,#ec4899,#f472b6)",
+      glow: "rgba(236,72,153,0.32)",
       border: "rgba(236,72,153,0.4)",
-      shine: "rgba(249,168,212,0.25)",
+      shine: "rgba(249,168,212,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#db2777,#ec4899)",
-      glow: "rgba(219,39,119,0.3)",
+      grad: "linear-gradient(145deg,#db2777,#ec4899)",
+      glow: "rgba(219,39,119,0.32)",
       border: "rgba(219,39,119,0.4)",
-      shine: "rgba(236,72,153,0.2)",
+      shine: "rgba(244,114,182,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#be185d,#db2777)",
-      glow: "rgba(190,24,93,0.3)",
+      grad: "linear-gradient(145deg,#be185d,#db2777)",
+      glow: "rgba(190,24,93,0.32)",
       border: "rgba(190,24,93,0.4)",
-      shine: "rgba(219,39,119,0.2)",
+      shine: "rgba(236,72,153,0.28)",
     },
   ],
   WED: [
     {
-      grad: "linear-gradient(135deg,#10b981,#34d399)",
-      glow: "rgba(16,185,129,0.3)",
+      grad: "linear-gradient(145deg,#10b981,#34d399)",
+      glow: "rgba(16,185,129,0.32)",
       border: "rgba(16,185,129,0.4)",
-      shine: "rgba(110,231,183,0.25)",
+      shine: "rgba(110,231,183,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#059669,#10b981)",
-      glow: "rgba(5,150,105,0.3)",
+      grad: "linear-gradient(145deg,#059669,#10b981)",
+      glow: "rgba(5,150,105,0.32)",
       border: "rgba(5,150,105,0.4)",
-      shine: "rgba(16,185,129,0.2)",
+      shine: "rgba(52,211,153,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#047857,#059669)",
-      glow: "rgba(4,120,87,0.3)",
+      grad: "linear-gradient(145deg,#047857,#059669)",
+      glow: "rgba(4,120,87,0.32)",
       border: "rgba(4,120,87,0.4)",
-      shine: "rgba(5,150,105,0.2)",
+      shine: "rgba(16,185,129,0.28)",
     },
   ],
   THU: [
     {
-      grad: "linear-gradient(135deg,#f97316,#fb923c)",
-      glow: "rgba(249,115,22,0.3)",
+      grad: "linear-gradient(145deg,#f97316,#fb923c)",
+      glow: "rgba(249,115,22,0.32)",
       border: "rgba(249,115,22,0.4)",
-      shine: "rgba(253,186,116,0.25)",
+      shine: "rgba(253,186,116,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#ea580c,#f97316)",
-      glow: "rgba(234,88,12,0.3)",
+      grad: "linear-gradient(145deg,#ea580c,#f97316)",
+      glow: "rgba(234,88,12,0.32)",
       border: "rgba(234,88,12,0.4)",
-      shine: "rgba(249,115,22,0.2)",
+      shine: "rgba(251,146,60,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#c2410c,#ea580c)",
-      glow: "rgba(194,65,12,0.3)",
+      grad: "linear-gradient(145deg,#c2410c,#ea580c)",
+      glow: "rgba(194,65,12,0.32)",
       border: "rgba(194,65,12,0.4)",
-      shine: "rgba(234,88,12,0.2)",
+      shine: "rgba(249,115,22,0.28)",
     },
   ],
   FRI: [
     {
-      grad: "linear-gradient(135deg,#3b82f6,#60a5fa)",
-      glow: "rgba(59,130,246,0.3)",
+      grad: "linear-gradient(145deg,#3b82f6,#60a5fa)",
+      glow: "rgba(59,130,246,0.32)",
       border: "rgba(59,130,246,0.4)",
-      shine: "rgba(147,197,253,0.25)",
+      shine: "rgba(147,197,253,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#2563eb,#3b82f6)",
-      glow: "rgba(37,99,235,0.3)",
+      grad: "linear-gradient(145deg,#2563eb,#3b82f6)",
+      glow: "rgba(37,99,235,0.32)",
       border: "rgba(37,99,235,0.4)",
-      shine: "rgba(59,130,246,0.2)",
+      shine: "rgba(96,165,250,0.28)",
     },
     {
-      grad: "linear-gradient(135deg,#1d4ed8,#2563eb)",
-      glow: "rgba(29,78,216,0.3)",
+      grad: "linear-gradient(145deg,#1d4ed8,#2563eb)",
+      glow: "rgba(29,78,216,0.32)",
       border: "rgba(29,78,216,0.4)",
-      shine: "rgba(37,99,235,0.2)",
+      shine: "rgba(59,130,246,0.28)",
+    },
+  ],
+  SAT: [
+    {
+      grad: "linear-gradient(145deg,#8b5cf6,#a78bfa)",
+      glow: "rgba(139,92,246,0.32)",
+      border: "rgba(139,92,246,0.4)",
+      shine: "rgba(196,181,253,0.28)",
+    },
+    {
+      grad: "linear-gradient(145deg,#7c3aed,#8b5cf6)",
+      glow: "rgba(124,58,237,0.32)",
+      border: "rgba(124,58,237,0.4)",
+      shine: "rgba(167,139,250,0.28)",
+    },
+    {
+      grad: "linear-gradient(145deg,#6d28d9,#7c3aed)",
+      glow: "rgba(109,40,217,0.32)",
+      border: "rgba(109,40,217,0.4)",
+      shine: "rgba(139,92,246,0.28)",
+    },
+  ],
+  SUN: [
+    {
+      grad: "linear-gradient(145deg,#ef4444,#f87171)",
+      glow: "rgba(239,68,68,0.32)",
+      border: "rgba(239,68,68,0.4)",
+      shine: "rgba(252,165,165,0.28)",
+    },
+    {
+      grad: "linear-gradient(145deg,#dc2626,#ef4444)",
+      glow: "rgba(220,38,38,0.32)",
+      border: "rgba(220,38,38,0.4)",
+      shine: "rgba(248,113,113,0.28)",
+    },
+    {
+      grad: "linear-gradient(145deg,#b91c1c,#dc2626)",
+      glow: "rgba(185,28,28,0.32)",
+      border: "rgba(185,28,28,0.4)",
+      shine: "rgba(239,68,68,0.28)",
     },
   ],
 }
@@ -145,17 +190,27 @@ interface SlotEntry {
   startHour: number
   endHour: number
   day: Day
-  courseIdx: number
+  colorIdx: number
   room: string
 }
 type Cell = SlotEntry | "SPAN" | null
+type Grid = Record<Day, Cell[]>
 
-function buildGrid(tt: TimetableResponse): Record<Day, Cell[]> {
+function buildGrid(tt: TimetableResponse): Grid {
   const grid = Object.fromEntries(
     DAY_ORDER.map((d) => [d, Array<Cell>(HOURS.length).fill(null)]),
-  ) as Record<Day, Cell[]>
+  ) as Grid
 
-  const dayCount: Partial<Record<Day, number>> = {}
+  // ใช้ Map จำว่าแต่ละวันมีวิชาอะไรลงไปแล้วบ้าง (เพื่อดึงสีให้สม่ำเสมอต่อ 1 วิชา)
+  const dayCourseMap: Record<Day, Map<string, number>> = {
+    MON: new Map(),
+    TUE: new Map(),
+    WED: new Map(),
+    THU: new Map(),
+    FRI: new Map(),
+    SAT: new Map(),
+    SUN: new Map(),
+  }
 
   tt.courses.forEach((course) => {
     course.schedules.forEach((sch) => {
@@ -166,7 +221,7 @@ function buildGrid(tt: TimetableResponse): Record<Day, Cell[]> {
       let eiHour = parseInt(sch.end_time.split(":")[0], 10)
       const eiMin = parseInt(sch.end_time.split(":")[1] || "0", 10)
 
-      // ปรับปรุงการคำนวณ Span: ถ้ามีนาทีเศษ ให้ปัดขึ้นเพื่อให้ครอบคลุมช่องในตาราง
+      // ปัดเศษชั่วโมงขึ้นเพื่อให้ครอบคลุมช่องในตาราง
       if (eiMin > 0) eiHour += 1
       if (eiHour <= siHour) eiHour = siHour + 1
 
@@ -175,15 +230,17 @@ function buildGrid(tt: TimetableResponse): Record<Day, Cell[]> {
 
       if (si < 0 || si >= HOURS.length) return
 
-      const courseIdx = dayCount[day] ?? 0
-      dayCount[day] = courseIdx + 1
+      if (!dayCourseMap[day].has(course.course_id)) {
+        dayCourseMap[day].set(course.course_id, dayCourseMap[day].size)
+      }
+      const colorIdx = dayCourseMap[day].get(course.course_id)!
 
       grid[day][si] = {
         course,
         startHour: siHour,
         endHour: eiHour,
         day,
-        courseIdx,
+        colorIdx,
         room: sch.room || "TBA",
       }
 
@@ -298,7 +355,12 @@ export default function StudentDashboard() {
 
   const courses = timetable?.courses ?? []
   const totalCredits = courses.reduce((s, c) => s + c.credits, 0)
-  const grid = timetable ? buildGrid(timetable) : null
+
+  // ใช้ useMemo เพื่อป้องกันตาราง re-render บ่อยเกินไป
+  const grid = useMemo(
+    () => (timetable ? buildGrid(timetable) : null),
+    [timetable],
+  )
 
   return (
     <ProtectedLayout
@@ -460,12 +522,13 @@ export default function StudentDashboard() {
                         if (cell === "SPAN") return null
                         const span =
                           cell !== null ? cell.endHour - cell.startHour : 1
+
+                        const dayPalettes = DAY_PALETTES[cell?.day || "MON"]
                         const p =
                           cell !== null
-                            ? DAY_PALETTE[cell.day][
-                                cell.courseIdx % DAY_PALETTE[cell.day].length
-                              ]
+                            ? dayPalettes[cell.colorIdx % dayPalettes.length]
                             : null
+
                         return (
                           <td
                             key={hIdx}
@@ -548,7 +611,8 @@ export default function StudentDashboard() {
                                     fontWeight: 500,
                                     opacity: 0.95,
                                   }}>
-                                  {cell.course.course_name_en}
+                                  {cell.course.course_name_th ||
+                                    cell.course.course_name_en}
                                 </p>
                                 <p
                                   style={{
