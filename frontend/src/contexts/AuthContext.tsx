@@ -12,7 +12,9 @@ import axios from "axios";
 import api, { setAccessToken } from "@/lib/axios"; // ← เพิ่ม api ตรงนี้
 import type { LoginRequest, LoginResponse, Role } from "@/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL?.concat("/api") ??
+  "http://localhost:5000/api";
 
 // access token อายุ 30 นาที แจ้งเตือนก่อน 5 นาที
 const WARN_AT_MS = 25 * 60 * 1000;
