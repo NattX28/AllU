@@ -239,14 +239,28 @@ func (s *EnrollService) ConfirmEnrollment(studentID uuid.UUID, sectionIDs []stri
 			key := fmt.Sprintf("section:%s:seats", sidStr)
 			s.rdb.Decr(ctx, key)
 
-			if err := tx.Create(&models.Enrollment{
-				StudentID:    std.StudentID,
-				SectionID:    sid,
-				Status:       models.StatusEnrolled,
-				Semester:     sec.Semester,
-				AcademicYear: sec.AcademicYear,
-			}).Error; err != nil {
-				return err
+			var existing models.Enrollment
+			recErr := tx.Unscoped().
+				Where("student_id = ? AND section_id = ?", std.StudentID, sid).
+				First(&existing).Error
+			if recErr == nil {
+				existing.DeletedAt = gorm.DeletedAt{}
+				existing.Status = models.StatusEnrolled
+				existing.Semester = sec.Semester
+				existing.AcademicYear = sec.AcademicYear
+				if err := tx.Unscoped().Save(&existing).Error; err != nil {
+					return err
+				}
+			} else {
+				if err := tx.Create(&models.Enrollment{
+					StudentID:    std.StudentID,
+					SectionID:    sid,
+					Status:       models.StatusEnrolled,
+					Semester:     sec.Semester,
+					AcademicYear: sec.AcademicYear,
+				}).Error; err != nil {
+					return err
+				}
 			}
 		}
 
@@ -422,7 +436,14 @@ func (s *EnrollService) WithdrawCourse(studentID uuid.UUID, enrollmentID uuid.UU
 		}
 
 		en.Status = models.StatusWithdrawn
-		return tx.Save(&en).Error
+		if err := tx.Save(&en).Error; err != nil {
+			return err
+		}
+
+		tx.Model(&models.Section{}).Where("id = ?", en.SectionID).
+			Update("enrolled", gorm.Expr("enrolled - 1"))
+		s.rdb.Incr(context.Background(), fmt.Sprintf("section:%s:seats", en.SectionID.String()))
+		return nil
 	})
 }
 
