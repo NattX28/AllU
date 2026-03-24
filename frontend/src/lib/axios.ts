@@ -10,13 +10,21 @@ export const setAccessToken = (token: string | null) => {
 };
 export const getAccessToken = () => _accessToken;
 
+function getTokenFromCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|;\s*)access_token_hint=([^;]+)/);
+  return match ? match[1] : null;
+}
+
 const api = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
-  if (_accessToken) config.headers.Authorization = `Bearer ${_accessToken}`;
+  // ใช้ _accessToken ก่อน ถ้ายังไม่มีให้ fallback ไปอ่านจาก cookie hint
+  const token = _accessToken ?? getTokenFromCookie();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
