@@ -368,7 +368,8 @@ func (s *EnrollService) UpdateEnrollment(studentID uuid.UUID, newSids []string) 
 			// ถ้าเจอ ให้ reactivate แทนการ INSERT ใหม่ เพื่อป้องกัน duplicate key
 			var existingWithdrawn models.Enrollment
 			dbErr := tx.Unscoped().
-				Where("student_id = ? AND section_id = ?", std.StudentID, sid).
+				Where("student_id = ? AND section_id = ? AND (deleted_at IS NOT NULL OR status = ?)",
+					std.StudentID, sid, models.StatusWithdrawn).
 				First(&existingWithdrawn).Error
 			if dbErr == nil {
 				// มี record อยู่แล้ว (withdrawn/soft-deleted) → reactivate แทน INSERT
