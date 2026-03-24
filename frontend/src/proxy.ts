@@ -29,6 +29,10 @@ const PROTECTED: Record<string, string[]> = {
   admin: ["/admin"],
 };
 
+// ชื่อ cookie ของ refresh token ที่ backend ตั้งไว้ (HttpOnly)
+// เปลี่ยนให้ตรงกับชื่อจริงของ backend
+const REFRESH_TOKEN_COOKIE = "refresh_token";
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -47,15 +51,20 @@ export function proxy(request: NextRequest) {
     request.cookies.get("access_token_hint")?.value ??
     null;
 
-  if (!accessToken) {
+  const payload = accessToken ? decodeJWTPayload(accessToken) : null;
+
+  if (!payload || !payload.role) {
+    // access token ไม่มีหรือหมดอายุ — ตรวจว่ายังมี refresh token อยู่ไหม
+    // ถ้ามี ให้ผ่านไปก่อน แล้วปล่อยให้ AuthContext call /auth/refresh เอง
+    const hasRefreshToken = !!request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
+    if (hasRefreshToken) {
+      return NextResponse.next();
+    }
+
+    // ไม่มีทั้งคู่ → redirect ไป login จริงๆ
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  const payload = decodeJWTPayload(accessToken);
-  if (!payload || !payload.role) {
-    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   const role = payload.role as string;
