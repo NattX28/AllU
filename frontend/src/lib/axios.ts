@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL?.concat("/api") ??
+  "http://localhost:5000/api";
 
 let _accessToken: string | null = null;
 export const setAccessToken = (token: string | null) => {
