@@ -80,24 +80,14 @@ func (s *AuthService) Refresh(oldRefreshToken string) (string, string, error) {
 		return "", "", models.ErrInvalidRefreshToken
 	}
 
-	// Revoke old token ก่อน
-	token.Revoked = true
-	if err := s.db.Save(&token).Error; err != nil {
-		return "", "", err
-	}
-
+	// ออกแค่ access token ใหม่ ไม่แตะ refresh token เดิม
 	newAccessToken, err := s.generateAccessToken(&token.User)
 	if err != nil {
 		return "", "", err
 	}
 
-	// storeNewRefreshToken จัดการ create ใน db เอง (ไม่ซ้ำซ้อน)
-	newRefreshToken, err := s.storeNewRefreshToken(&token.User)
-	if err != nil {
-		return "", "", err
-	}
-
-	return newAccessToken, newRefreshToken, nil
+	// return refresh token เดิมกลับไปเลย
+	return newAccessToken, oldRefreshToken, nil
 }
 
 func (s *AuthService) generateAccessToken(user *models.User) (string, error) {

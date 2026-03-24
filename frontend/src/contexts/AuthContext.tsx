@@ -71,6 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
+      // ถ้าอยู่หน้า login อยู่แล้ว ไม่ต้อง refresh
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname === "/login"
+      ) {
+        setIsLoading(false);
+        return;
+      }
       try {
         // ใช้ axios ตรงๆ ได้ตรงนี้ เพราะเป็นการ refresh ครั้งแรก (ยังไม่มี token)
         const { data } = await axios.post<{ token: string }>(
