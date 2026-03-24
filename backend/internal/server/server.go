@@ -33,8 +33,14 @@ func Start(db *gorm.DB, rdb *redis.Client) {
 		},
 	})
 
+	var allowedOrigins []string
+	if os.Getenv("FRONTEND_URL") != "" {
+		allowedOrigins = append(allowedOrigins, os.Getenv("FRONTEND_URL"))
+	}
+	allowedOrigins = append(allowedOrigins, "http://localhost:3000")
+
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
