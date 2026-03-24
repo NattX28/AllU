@@ -34,7 +34,6 @@ const HOURS = Array.from(
 )
 const COL_W = 56
 
-// สีแต่ละวัน มี 3 shade (เข้มขึ้นเรื่อยๆ) สำหรับวิชาที่ 1, 2, 3 ในวันเดียวกัน
 const DAY_PALETTE: Record<
   Day,
   Array<{ grad: string; glow: string; border: string; shine: string }>
@@ -146,7 +145,8 @@ interface SlotEntry {
   startHour: number
   endHour: number
   day: Day
-  courseIdx: number // index ของวิชาในวันนั้น (สำหรับเลือก shade)
+  courseIdx: number
+  room: string // เพิ่มเพื่อเก็บข้อมูลสถานที่
 }
 type Cell = SlotEntry | "SPAN" | null
 
@@ -155,27 +155,41 @@ function buildGrid(tt: TimetableResponse): Record<Day, Cell[]> {
     DAY_ORDER.map((d) => [d, Array<Cell>(HOURS.length).fill(null)]),
   ) as Record<Day, Cell[]>
 
-  // นับ index ของวิชาในแต่ละวัน เพื่อให้ได้ shade ที่ต่างกัน
   const dayCount: Partial<Record<Day, number>> = {}
 
   tt.courses.forEach((course) => {
     course.schedules.forEach((sch) => {
-      const day = sch.day as Day
+      const day = sch.day.toUpperCase() as Day // ป้องกันเคสตัวพิมพ์เล็ก
       if (!grid[day]) return
-      const si = parseInt(sch.start_time.split(":")[0], 10) - START_HOUR
-      const ei = parseInt(sch.end_time.split(":")[0], 10) - START_HOUR
+
+      const siHour = parseInt(sch.start_time.split(":")[0], 10)
+      let eiHour = parseInt(sch.end_time.split(":")[0], 10)
+      const eiMin = parseInt(sch.end_time.split(":")[1] || "0", 10)
+
+      // แก้บั๊ก span: ถ้าเลิกมีเศษนาที ให้ปัดขึ้นเป็น 1 block เสมอ
+      if (eiMin > 0) eiHour += 1
+      if (eiHour <= siHour) eiHour = siHour + 1
+
+      const si = siHour - START_HOUR
+      const ei = eiHour - START_HOUR
+
       if (si < 0 || si >= HOURS.length) return
+
       const courseIdx = dayCount[day] ?? 0
       dayCount[day] = courseIdx + 1
+
       grid[day][si] = {
         course,
         startHour: si + START_HOUR,
         endHour: ei + START_HOUR,
         day,
         courseIdx,
+        room: sch.room || "TBA",
       }
-      for (let i = si + 1; i < ei && i < HOURS.length; i++)
+
+      for (let i = si + 1; i < ei && i < HOURS.length; i++) {
         grid[day][i] = "SPAN"
+      }
     })
   })
   return grid
@@ -316,7 +330,6 @@ export default function StudentDashboard() {
           />
         </div>
 
-        {/* Mini timetable — row=day, col=time */}
         <div
           className="rounded-[20px] overflow-hidden fade-up fade-up-3"
           style={{
@@ -379,9 +392,7 @@ export default function StudentDashboard() {
                 }}>
                 <thead>
                   <tr>
-                    {/* empty corner */}
                     <th style={{ width: 84 }} />
-                    {/* time column headers */}
                     {HOURS.map((h) => (
                       <th
                         key={h}
@@ -409,11 +420,10 @@ export default function StudentDashboard() {
                 <tbody>
                   {DAY_ORDER.map((day) => (
                     <tr key={day}>
-                      {/* row label = day */}
                       <td style={{ padding: 0, verticalAlign: "middle" }}>
                         <div
                           style={{
-                            height: 48,
+                            height: 52,
                             borderRadius: 10,
                             display: "flex",
                             flexDirection: "column",
@@ -445,7 +455,6 @@ export default function StudentDashboard() {
                           </span>
                         </div>
                       </td>
-                      {/* time cells */}
                       {HOURS.map((_, hIdx) => {
                         const cell = grid[day][hIdx]
                         if (cell === "SPAN") return null
@@ -463,7 +472,7 @@ export default function StudentDashboard() {
                             colSpan={span}
                             style={{
                               padding: 0,
-                              height: 48,
+                              height: 52,
                               verticalAlign: "top",
                             }}>
                             {cell !== null && p ? (
@@ -474,7 +483,7 @@ export default function StudentDashboard() {
                                   background: p.grad,
                                   border: `1px solid ${p.border}`,
                                   boxShadow: `0 2px 10px ${p.glow}, inset 0 1px 0 ${p.shine}`,
-                                  padding: span >= 2 ? "6px 9px" : "4px 6px",
+                                  padding: "5px 8px",
                                   display: "flex",
                                   flexDirection: "column",
                                   justifyContent: "center",
@@ -486,7 +495,7 @@ export default function StudentDashboard() {
                                 onMouseEnter={(e) => {
                                   const el = e.currentTarget as HTMLDivElement
                                   el.style.transform =
-                                    "scale(1.03) translateY(-1px)"
+                                    "scale(1.02) translateY(-1px)"
                                   el.style.zIndex = "10"
                                 }}
                                 onMouseLeave={(e) => {
@@ -510,11 +519,11 @@ export default function StudentDashboard() {
                                   style={{
                                     position: "relative",
                                     zIndex: 1,
-                                    fontSize: span >= 2 ? 10.5 : 9,
+                                    fontSize: 10,
                                     fontWeight: 700,
                                     color: "#fff",
                                     letterSpacing: "-0.01em",
-                                    lineHeight: 1.2,
+                                    lineHeight: 1.1,
                                     fontFamily:
                                       "var(--font-dm-mono,'DM Mono',monospace)",
                                     textShadow: "0 1px 2px rgba(0,0,0,0.2)",
@@ -524,28 +533,43 @@ export default function StudentDashboard() {
                                   }}>
                                   {cell.course.course_id}
                                 </p>
-                                {span >= 2 && (
-                                  <p
-                                    style={{
-                                      position: "relative",
-                                      zIndex: 1,
-                                      fontSize: 9,
-                                      color: "rgba(255,255,255,0.72)",
-                                      marginTop: 1,
-                                      fontFamily:
-                                        "var(--font-sarabun,'Sarabun',sans-serif)",
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                      whiteSpace: "nowrap",
-                                    }}>
-                                    Sec {cell.course.section_num}
-                                  </p>
-                                )}
+                                <p
+                                  style={{
+                                    position: "relative",
+                                    zIndex: 1,
+                                    fontSize: 9,
+                                    color: "#fff",
+                                    marginTop: 1,
+                                    fontFamily:
+                                      "var(--font-sarabun,'Sarabun',sans-serif)",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                    fontWeight: 500,
+                                    opacity: 0.95,
+                                  }}>
+                                  {cell.course.course_name_th}
+                                </p>
+                                <p
+                                  style={{
+                                    position: "relative",
+                                    zIndex: 1,
+                                    fontSize: 8.5,
+                                    color: "rgba(255,255,255,0.8)",
+                                    marginTop: 1,
+                                    fontFamily:
+                                      "var(--font-sarabun,'Sarabun',sans-serif)",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}>
+                                  Sec {cell.course.section_num} • {cell.room}
+                                </p>
                               </div>
                             ) : (
                               <div
                                 style={{
-                                  height: 48,
+                                  height: "100%",
                                   borderRadius: 8,
                                   background:
                                     hIdx % 2 === 0
