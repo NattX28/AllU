@@ -4,13 +4,7 @@ function decodeJWTPayload(token: string): Record<string, string> | null {
   try {
     const base64 = token.split(".")[1];
     const json = Buffer.from(base64, "base64").toString("utf-8");
-    const payload = JSON.parse(json);
-
-    if (payload.exp && Date.now() / 1000 > payload.exp) {
-      return null;
-    }
-
-    return payload;
+    return JSON.parse(json);
   } catch {
     return null;
   }
@@ -29,10 +23,6 @@ const PROTECTED: Record<string, string[]> = {
   admin: ["/admin"],
 };
 
-// ชื่อ cookie ของ refresh token ที่ backend ตั้งไว้ (HttpOnly)
-// เปลี่ยนให้ตรงกับชื่อจริงของ backend
-const REFRESH_TOKEN_COOKIE = "refresh_token";
-
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -45,23 +35,22 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Try to read access token from Authorization header (set by server components)
   const accessToken =
     request.headers.get("x-access-token") ??
     request.cookies.get("access_token_hint")?.value ??
     null;
 
-  const payload = accessToken ? decodeJWTPayload(accessToken) : null;
+  // ไม่มี cookie เลย → ยังไม่เคย login → redirect ไป login
+  if (!accessToken) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
-  if (!payload || !payload.role) {
-    // access token ไม่มีหรือหมดอายุ — ตรวจว่ายังมี refresh token อยู่ไหม
-    // ถ้ามี ให้ผ่านไปก่อน แล้วปล่อยให้ AuthContext call /auth/refresh เอง
-    const hasRefreshToken = !!request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
-    if (hasRefreshToken) {
-      return NextResponse.next();
-    }
-
-    // ไม่มีทั้งคู่ → redirect ไป login จริงๆ
+  // มี cookie → decode เพื่ออ่าน role เท่านั้น ไม่ตรวจ exp
+  // (AuthContext จะ refresh token เองถ้าหมดอายุ)
+  const payload = decodeJWTPayload(accessToken);
+  if (!payload?.role) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
@@ -76,7 +65,7 @@ export function proxy(request: NextRequest) {
     );
   }
 
-  // Guard: student can't access /admin, /professor etc.
+  // Guard: ป้องกัน role อื่นเข้า route ที่ไม่ใช่ของตัวเอง
   for (const [r, prefixes] of Object.entries(PROTECTED)) {
     if (r !== role) {
       for (const prefix of prefixes) {
