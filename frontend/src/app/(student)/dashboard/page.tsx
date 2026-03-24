@@ -8,7 +8,7 @@ import ProtectedLayout from "@/components/layout/ProtectedLayout"
 import { GraduationCap, BookOpen, TrendingUp } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 
-// ── row = day, col = time ─────────────────────────────────────
+// ── การตั้งค่าพื้นฐานของตาราง ─────────────────────────────────────
 const DAY_ORDER = ["MON", "TUE", "WED", "THU", "FRI"] as const
 type Day = (typeof DAY_ORDER)[number]
 const DAY_SHORT: Record<Day, string> = {
@@ -146,7 +146,7 @@ interface SlotEntry {
   endHour: number
   day: Day
   courseIdx: number
-  room: string // เพิ่มเพื่อเก็บข้อมูลสถานที่
+  room: string
 }
 type Cell = SlotEntry | "SPAN" | null
 
@@ -159,14 +159,14 @@ function buildGrid(tt: TimetableResponse): Record<Day, Cell[]> {
 
   tt.courses.forEach((course) => {
     course.schedules.forEach((sch) => {
-      const day = sch.day.toUpperCase() as Day // ป้องกันเคสตัวพิมพ์เล็ก
+      const day = sch.day.toUpperCase() as Day
       if (!grid[day]) return
 
       const siHour = parseInt(sch.start_time.split(":")[0], 10)
       let eiHour = parseInt(sch.end_time.split(":")[0], 10)
       const eiMin = parseInt(sch.end_time.split(":")[1] || "0", 10)
 
-      // แก้บั๊ก span: ถ้าเลิกมีเศษนาที ให้ปัดขึ้นเป็น 1 block เสมอ
+      // ปรับปรุงการคำนวณ Span: ถ้ามีนาทีเศษ ให้ปัดขึ้นเพื่อให้ครอบคลุมช่องในตาราง
       if (eiMin > 0) eiHour += 1
       if (eiHour <= siHour) eiHour = siHour + 1
 
@@ -180,8 +180,8 @@ function buildGrid(tt: TimetableResponse): Record<Day, Cell[]> {
 
       grid[day][si] = {
         course,
-        startHour: si + START_HOUR,
-        endHour: ei + START_HOUR,
+        startHour: siHour,
+        endHour: eiHour,
         day,
         courseIdx,
         room: sch.room || "TBA",
@@ -548,7 +548,7 @@ export default function StudentDashboard() {
                                     fontWeight: 500,
                                     opacity: 0.95,
                                   }}>
-                                  {cell.course.course_name_th}
+                                  {cell.course.course_name_en}
                                 </p>
                                 <p
                                   style={{
