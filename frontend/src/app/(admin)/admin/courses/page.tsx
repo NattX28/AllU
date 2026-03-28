@@ -34,6 +34,8 @@ import {
   BookMarked,
   Loader2,
   Upload,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 
 // ─── Category config ──────────────────────────────────────────
@@ -108,7 +110,7 @@ function CourseModal({
         credits: initial?.credits ?? 3,
         category: initial?.category ?? "",
       })
-      setPrereqIds([])
+      setPrereqIds(initial?.prerequisites?.map((p) => p.id) || [])
       setPrereqInput("")
     }
   }, [open, initial])
@@ -304,11 +306,19 @@ function CourseModal({
   )
 }
 
+// ─── Constants ────────────────────────────────────────────────
+const PAGE_SIZE = 20 // จำนวนรายการต่อหน้า
+
 // ─── Page ─────────────────────────────────────────────────────
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState<CourseResponse[]>([])
   const [search, setSearch] = useState("")
   const [filterCat, setFilterCat] = useState("all")
+
+  // ✅ 1. เพิ่ม State สำหรับ Pagination และ การนำเข้า
+  const [page, setPage] = useState(1)
+  const [importing, setImporting] = useState(false)
+
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<CourseResponse | undefined>()
   const importRef = useRef<HTMLInputElement>(null)
@@ -317,13 +327,13 @@ export default function AdminCoursesPage() {
     courseService
       .getAll()
       .then((data) => {
-        // ตรวจสอบว่าถ้า data เป็น null หรือไม่ใช่ array ให้เซตเป็น [] แทน
         setCourses(Array.isArray(data) ? data : [])
       })
       .catch((err) => {
         console.error(err)
-        setCourses([]) // ถ้า error ก็เซตเป็น array ว่างไว้ก่อน
+        setCourses([])
       })
+
   useEffect(() => {
     fetchCourses()
   }, [])
@@ -341,10 +351,28 @@ export default function AdminCoursesPage() {
     fetchCourses()
   }
 
+  // ✅ 2. ฟังก์ชันจัดการการนำเข้าไฟล์
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImporting(true)
+    try {
+      await courseService.importCourses(file)
+      await fetchCourses()
+      alert("นำเข้าสำเร็จ")
+    } catch {
+      alert("เกิดข้อผิดพลาดในการนำเข้าไฟล์")
+    } finally {
+      setImporting(false)
+      e.target.value = ""
+    }
+  }
+
+  // กรองข้อมูลตามที่พิมพ์หรือเลือก
   const filtered = (courses || []).filter((c) => {
     const searchLower = search.toLowerCase()
 
-    // ป้องกัน c.id, c.name_en, c.name_th เป็น null
     const matchSearch =
       (c.id?.toLowerCase() || "").includes(searchLower) ||
       (c.name_en?.toLowerCase() || "").includes(searchLower) ||
@@ -355,6 +383,14 @@ export default function AdminCoursesPage() {
 
     return matchSearch && matchCat
   })
+
+  // ✅ 3. คำนวณข้อมูลสำหรับการแบ่งหน้า
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  // หั่น array ให้เหลือแค่ข้อมูลของหน้าที่เลือก
+  const paginatedCourses = filtered.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE,
+  )
 
   return (
     <ProtectedLayout
@@ -372,12 +408,20 @@ export default function AdminCoursesPage() {
               placeholder="ค้นหารหัสวิชา หรือชื่อวิชา..."
               className="pl-9 h-9 text-[13px]"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1) // รีเซ็ตหน้ากลับไปหน้า 1 เมื่อค้นหาใหม่
+              }}
             />
           </div>
 
           {/* Category filter */}
-          <Select value={filterCat} onValueChange={setFilterCat}>
+          <Select
+            value={filterCat}
+            onValueChange={(v) => {
+              setFilterCat(v)
+              setPage(1) // รีเซ็ตหน้ากลับไปหน้า 1 เมื่อเปลี่ยนหมวดหมู่
+            }}>
             <SelectTrigger className="w-40 h-9 text-[13px]">
               <SelectValue placeholder="หมวดวิชา" />
             </SelectTrigger>
@@ -396,21 +440,23 @@ export default function AdminCoursesPage() {
             type="file"
             accept=".xlsx,.xls"
             className="hidden"
-            onChange={async (e) => {
-              const f = e.target.files?.[0]
-              if (f) {
-                await courseService.importCourses(f)
-                fetchCourses()
-              }
-              e.target.value = ""
-            }}
+            onChange={handleImport}
           />
+
+          {/* ✅ ปุ่มนำเข้าอัปเดตให้รองรับสถานะ Loading */}
           <Button
             variant="outline"
-            className="h-9 text-[13px] gap-1.5"
-            onClick={() => importRef.current?.click()}>
-            <Upload size={14} /> นำเข้า Excel
+            className="h-9 text-[13px] gap-1.5 w-32"
+            onClick={() => importRef.current?.click()}
+            disabled={importing}>
+            {importing ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Upload size={14} />
+            )}
+            {importing ? "กำลังนำเข้า..." : "นำเข้า Excel"}
           </Button>
+
           <Button
             className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px] gap-1.5"
             onClick={() => {
@@ -443,7 +489,8 @@ export default function AdminCoursesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
-                {filtered.map((c) => (
+                {/* ✅ ใช้ข้อมูลที่แบ่งหน้าแล้ว (paginatedCourses) มาลูปแสดงผล */}
+                {paginatedCourses.map((c) => (
                   <tr
                     key={c.id}
                     className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
@@ -511,6 +558,33 @@ export default function AdminCoursesPage() {
               </tbody>
             </table>
           </div>
+
+          {/* ✅ เพิ่ม UI ส่วนของ Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-700/60">
+              <p className="text-[12px] text-slate-400">
+                หน้า {page}/{totalPages} ({filtered.length} รายการ)
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                  <ChevronLeft size={14} />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                  <ChevronRight size={14} />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
