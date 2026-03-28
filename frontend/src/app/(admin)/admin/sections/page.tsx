@@ -1,8 +1,8 @@
-"use client";
+"use client"
 
-import { useEffect, useState, useCallback } from "react";
-import { courseService } from "@/services/courseService";
-import api from "@/lib/axios";
+import { useEffect, useState, useCallback } from "react"
+import { courseService } from "@/services/courseService"
+import api from "@/lib/axios"
 import type {
   CourseResponse,
   SectionResponse,
@@ -10,29 +10,29 @@ import type {
   CreateSectionRequest,
   UpdateSectionRequest,
   GetMeResponse,
-} from "@/types";
-import ProtectedLayout from "@/components/layout/ProtectedLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+} from "@/types"
+import ProtectedLayout from "@/components/layout/ProtectedLayout"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Layers, Loader2, Search, X } from "lucide-react";
+} from "@/components/ui/dialog"
+import { Plus, Pencil, Trash2, Layers, Loader2, Search, X } from "lucide-react"
 
-type FlatSection = SectionResponse & { courseId: string; courseName: string };
+type FlatSection = SectionResponse & { courseId: string; courseName: string }
 
 // ─── Professor picker ─────────────────────────────────────────
 function ProfessorPicker({
@@ -40,81 +40,78 @@ function ProfessorPicker({
   initialName = "",
   onChange,
 }: {
-  value: string;
-  initialName?: string;
-  onChange: (id: string) => void;
+  value: string
+  initialName?: string
+  onChange: (id: string) => void
 }) {
-  const [search, setSearch] = useState("");
-  const [results, setResults] = useState<GetMeResponse[]>([]);
-  const [selectedName, setSelectedName] = useState(initialName);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("")
+  const [results, setResults] = useState<GetMeResponse[]>([])
+  const [selectedName, setSelectedName] = useState(initialName)
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
 
   // Sync when initialName changes (e.g. modal opens with different editSection)
   useEffect(() => {
-    setSelectedName(initialName);
-  }, [initialName]);
+    setSelectedName(initialName)
+  }, [initialName])
 
   const doSearch = useCallback(async (q: string) => {
-    setLoading(true);
+    setLoading(true)
     try {
       const res = await api.get<{ total: number; data: GetMeResponse[] }>(
         "/admin/users",
         { params: { role: "professor", search: q, limit: 20 } },
-      );
-      setResults(res.data.data ?? []);
+      )
+      setResults(res.data.data ?? [])
     } catch {
-      setResults([]);
+      setResults([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
-    if (open) doSearch(search);
-  }, [open]);
+    if (open) doSearch(search)
+  }, [open])
 
   useEffect(() => {
-    if (!open) return;
-    const t = setTimeout(() => doSearch(search), 300);
-    return () => clearTimeout(t);
-  }, [search, open]);
+    if (!open) return
+    const t = setTimeout(() => doSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search, open])
 
   const handleSelect = (prof: GetMeResponse) => {
-    console.log("prof:", prof); // เพิ่มบรรทัดนี้
-    const profileId = prof.professor?.profile_id ?? "";
-    console.log("profileId:", profileId); // และบรรทัดนี้
-    setSelectedName(`${prof.name} (${prof.professor?.professor_id ?? ""})`);
-    onChange(profileId);
-    setOpen(false);
-  };
+    console.log("prof:", prof) // เพิ่มบรรทัดนี้
+    const profileId = prof.professor?.profile_id ?? ""
+    console.log("profileId:", profileId) // และบรรทัดนี้
+    setSelectedName(`${prof.name} (${prof.professor?.professor_id ?? ""})`)
+    onChange(profileId)
+    setOpen(false)
+  }
 
   return (
     <div className="space-y-1">
       <Label className="text-xs text-slate-500">อาจารย์ผู้สอน</Label>
       <div
         className="flex h-9 w-full items-center rounded-md border border-input bg-background px-3 text-[13px] cursor-pointer gap-2 hover:border-slate-400 transition-colors"
-        onClick={() => setOpen(true)}
-      >
+        onClick={() => setOpen(true)}>
         <Search size={13} className="text-slate-400 shrink-0" />
         <span
           className={
             selectedName
               ? "text-slate-800 dark:text-slate-100 flex-1 truncate"
               : "text-slate-400 flex-1"
-          }
-        >
+          }>
           {selectedName || "ค้นหาชื่ออาจารย์..."}
         </span>
         {selectedName && (
           <button
             className="text-slate-400 hover:text-slate-600"
             onClick={(e) => {
-              e.stopPropagation();
-              setSelectedName("");
-              onChange("");
-            }}
-          >
+              e.stopPropagation()
+              setSelectedName("")
+              onChange("")
+            }}>
             <X size={13} />
           </button>
         )}
@@ -158,8 +155,7 @@ function ProfessorPicker({
                 <div
                   key={prof.id}
                   className="px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-                  onClick={() => handleSelect(prof)}
-                >
+                  onClick={() => handleSelect(prof)}>
                   <p className="text-[13px] font-medium text-slate-800 dark:text-slate-100">
                     {prof.name}
                   </p>
@@ -174,26 +170,26 @@ function ProfessorPicker({
         </>
       )}
     </div>
-  );
+  )
 }
 
 // ─── Schedule row editor ──────────────────────────────────────
 interface ScheduleRow {
-  day: string;
-  start_time: string;
-  end_time: string;
-  room: string;
-  type: "LECTURE" | "LAB";
+  day: string
+  start_time: string
+  end_time: string
+  room: string
+  type: "LECTURE" | "LAB"
 }
 
-const DAY_OPTIONS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+const DAY_OPTIONS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 const emptySchedule = (): ScheduleRow => ({
   day: "MON",
   start_time: "09:00",
   end_time: "12:00",
   room: "",
   type: "LECTURE",
-});
+})
 
 // ─── Section Modal ────────────────────────────────────────────
 function SectionModal({
@@ -203,36 +199,36 @@ function SectionModal({
   courses,
   editSection,
 }: {
-  open: boolean;
-  onClose: () => void;
+  open: boolean
+  onClose: () => void
   onSave: (
     data: CreateSectionRequest | UpdateSectionRequest,
     isEdit: boolean,
     secId?: string,
-  ) => Promise<void>;
-  courses: CourseResponse[];
-  editSection?: FlatSection;
+  ) => Promise<void>
+  courses: CourseResponse[]
+  editSection?: FlatSection
 }) {
-  const isEdit = !!editSection;
-  const [saving, setSaving] = useState(false);
-  const [courseId, setCourseId] = useState(editSection?.courseId ?? "");
-  const [professorId, setProfessorId] = useState("");
-  const [professorName, setProfessorName] = useState("");
-  const [schedules, setSchedules] = useState<ScheduleRow[]>([emptySchedule()]);
+  const isEdit = !!editSection
+  const [saving, setSaving] = useState(false)
+  const [courseId, setCourseId] = useState(editSection?.courseId ?? "")
+  const [professorId, setProfessorId] = useState("")
+  const [professorName, setProfessorName] = useState("")
+  const [schedules, setSchedules] = useState<ScheduleRow[]>([emptySchedule()])
   const [form, setForm] = useState({
     section_num: editSection?.section_num ?? 1,
     semester: editSection?.semester ?? 1,
     academic_year: editSection?.academic_year ?? new Date().getFullYear() + 543,
     capacity: editSection?.capacity ?? 40,
-  });
+  })
 
   // Reset on open — prefill existing data when editing
   useEffect(() => {
     if (open) {
-      setCourseId(editSection?.courseId ?? "");
+      setCourseId(editSection?.courseId ?? "")
       // Prefill professor from existing section
-      setProfessorId(editSection?.professor_profile_id ?? "");
-      setProfessorName(editSection?.professor_name ?? "");
+      setProfessorId(editSection?.professor_profile_id ?? "")
+      setProfessorName(editSection?.professor_name ?? "")
       // Prefill schedules from existing section
       setSchedules(
         editSection?.schedules?.length
@@ -244,48 +240,48 @@ function SectionModal({
               type: s.type as "LECTURE" | "LAB",
             }))
           : [emptySchedule()],
-      );
+      )
       setForm({
         section_num: editSection?.section_num ?? 1,
         semester: editSection?.semester ?? 1,
         academic_year:
           editSection?.academic_year ?? new Date().getFullYear() + 543,
         capacity: editSection?.capacity ?? 40,
-      });
+      })
     }
-  }, [open, editSection]);
+  }, [open, editSection])
 
-  const set = (k: string, v: number) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k: string, v: number) => setForm((p) => ({ ...p, [k]: v }))
 
   const updateSchedule = (idx: number, key: keyof ScheduleRow, val: string) => {
     setSchedules((prev) =>
       prev.map((s, i) => (i === idx ? { ...s, [key]: val } : s)),
-    );
-  };
+    )
+  }
 
   const handleSave = async () => {
     // ── Validate ──
     if (!isEdit) {
-      if (!courseId) return alert("กรุณาเลือกวิชา");
-      if (!professorId) return alert("กรุณาเลือกอาจารย์ผู้สอน");
+      if (!courseId) return alert("กรุณาเลือกวิชา")
+      if (!professorId) return alert("กรุณาเลือกอาจารย์ผู้สอน")
       if (
         !form.section_num ||
         !form.semester ||
         !form.academic_year ||
         !form.capacity
       )
-        return alert("กรุณากรอกข้อมูลให้ครบ");
+        return alert("กรุณากรอกข้อมูลให้ครบ")
     }
     // ถ้า edit และไม่ได้เปลี่ยนอาจารย์ → ไม่ต้อง validate professorId
-    const emptyRoom = schedules.find((s) => !s.room.trim());
+    const emptyRoom = schedules.find((s) => !s.room.trim())
     if (emptyRoom)
       return alert(
         `กรุณากรอกห้องเรียน (${emptyRoom.day} ${emptyRoom.start_time}-${emptyRoom.end_time})`,
-      );
-    const emptyTime = schedules.find((s) => !s.start_time || !s.end_time);
-    if (emptyTime) return alert("กรุณากรอกเวลาเรียนให้ครบ");
+      )
+    const emptyTime = schedules.find((s) => !s.start_time || !s.end_time)
+    if (emptyTime) return alert("กรุณากรอกเวลาเรียนให้ครบ")
 
-    setSaving(true);
+    setSaving(true)
     try {
       if (isEdit) {
         const payload: UpdateSectionRequest = {
@@ -301,8 +297,8 @@ function SectionModal({
                 type: s.type,
               }))
             : undefined,
-        };
-        await onSave(payload, true, editSection?.id);
+        }
+        await onSave(payload, true, editSection?.id)
       } else {
         const payload: CreateSectionRequest = {
           course_id: courseId,
@@ -318,14 +314,14 @@ function SectionModal({
             room: s.room,
             type: s.type,
           })),
-        };
-        await onSave(payload, false);
+        }
+        await onSave(payload, false)
       }
-      onClose();
+      onClose()
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -388,8 +384,8 @@ function SectionModal({
               value={professorId}
               initialName={professorName}
               onChange={(id) => {
-                setProfessorId(id);
-                if (!id) setProfessorName("");
+                setProfessorId(id)
+                if (!id) setProfessorName("")
               }}
             />
             {isEdit && !professorId && professorName && (
@@ -406,8 +402,7 @@ function SectionModal({
               <button
                 type="button"
                 className="text-[12px] text-[#AC3520] hover:underline flex items-center gap-1"
-                onClick={() => setSchedules((p) => [...p, emptySchedule()])}
-              >
+                onClick={() => setSchedules((p) => [...p, emptySchedule()])}>
                 <Plus size={12} /> เพิ่มช่วงเวลา
               </button>
             </div>
@@ -415,15 +410,13 @@ function SectionModal({
             {schedules.map((sch, idx) => (
               <div
                 key={idx}
-                className="grid grid-cols-5 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg items-end"
-              >
+                className="grid grid-cols-5 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg items-end">
                 {/* Day */}
                 <div className="space-y-1">
                   <Label className="text-[11px] text-slate-400">วัน</Label>
                   <Select
                     value={sch.day}
-                    onValueChange={(v) => updateSchedule(idx, "day", v)}
-                  >
+                    onValueChange={(v) => updateSchedule(idx, "day", v)}>
                     <SelectTrigger className="h-8 text-[12px]">
                       <SelectValue />
                     </SelectTrigger>
@@ -482,8 +475,7 @@ function SectionModal({
                   <div className="flex gap-1">
                     <Select
                       value={sch.type}
-                      onValueChange={(v) => updateSchedule(idx, "type", v)}
-                    >
+                      onValueChange={(v) => updateSchedule(idx, "type", v)}>
                       <SelectTrigger className="h-8 text-[12px] flex-1">
                         <SelectValue />
                       </SelectTrigger>
@@ -497,8 +489,7 @@ function SectionModal({
                         className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         onClick={() =>
                           setSchedules((p) => p.filter((_, i) => i !== idx))
-                        }
-                      >
+                        }>
                         <Trash2 size={13} />
                       </button>
                     )}
@@ -513,49 +504,57 @@ function SectionModal({
           <Button
             variant="outline"
             onClick={onClose}
-            className="h-9 text-[13px]"
-          >
+            className="h-9 text-[13px]">
             ยกเลิก
           </Button>
           <Button
             className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px]"
             onClick={handleSave}
-            disabled={saving || (!isEdit && (!courseId || !professorId))}
-          >
+            disabled={saving || (!isEdit && (!courseId || !professorId))}>
             {saving && <Loader2 size={13} className="animate-spin mr-1" />}
             {isEdit ? "บันทึก" : "สร้าง"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 // ─── Page ─────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────
 export default function AdminSectionsPage() {
-  const [courses, setCourses] = useState<CourseResponse[]>([]);
-  const [filterCourse, setFilterCourse] = useState("all");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<FlatSection | undefined>();
+  const [courses, setCourses] = useState<CourseResponse[]>([])
+  const [filterCourse, setFilterCourse] = useState("all")
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<FlatSection | undefined>()
 
+  // ✅ 1. แก้ไข fetchCourses ให้ดักจับ Array เสมอ
   const fetchCourses = () =>
-    courseService.getAll().then(setCourses).catch(console.error);
+    courseService
+      .getAll()
+      .then((data) => setCourses(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error(err)
+        setCourses([]) // ถ้า error ก็ให้เป็น array ว่างแทน
+      })
 
   useEffect(() => {
-    fetchCourses();
-  }, []);
+    fetchCourses()
+  }, [])
 
-  const allSections: FlatSection[] = courses.flatMap((c) =>
+  // ✅ 2. เพิ่ม (courses || []) ป้องกันค่า courses เป็น null ก่อนใช้ flatMap
+  const allSections: FlatSection[] = (courses || []).flatMap((c) =>
     (c.sections ?? []).map((s) => ({
       ...s,
       courseId: c.id,
       courseName: c.name_en,
     })),
-  );
+  )
+
   const filtered =
     filterCourse === "all"
       ? allSections
-      : allSections.filter((s) => s.courseId === filterCourse);
+      : allSections.filter((s) => s.courseId === filterCourse)
 
   const handleSave = async (
     data: CreateSectionRequest | UpdateSectionRequest,
@@ -563,18 +562,18 @@ export default function AdminSectionsPage() {
     secId?: string,
   ) => {
     if (isEdit && secId)
-      await courseService.updateSection(secId, data as UpdateSectionRequest);
-    else await courseService.createSection(data as CreateSectionRequest);
-    fetchCourses();
-  };
+      await courseService.updateSection(secId, data as UpdateSectionRequest)
+    else await courseService.createSection(data as CreateSectionRequest)
+    fetchCourses()
+  }
 
   return (
     <ProtectedLayout
       title="จัดการกลุ่มเรียน"
       subtitle={`${allSections.length} กลุ่มทั้งหมด`}
-      allowedRoles={["admin"]}
-    >
+      allowedRoles={["admin"]}>
       <main className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* โค้ดส่วน UI ด้านในคงเดิม ไม่ต้องแก้ครับ */}
         <div className="flex items-center gap-3">
           <Select value={filterCourse} onValueChange={setFilterCourse}>
             <SelectTrigger className="w-56 h-9 text-[13px]">
@@ -582,7 +581,7 @@ export default function AdminSectionsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">ทุกวิชา</SelectItem>
-              {courses.map((c) => (
+              {(courses || []).map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.id} — {c.name_en}
                 </SelectItem>
@@ -592,10 +591,9 @@ export default function AdminSectionsPage() {
           <Button
             className="ml-auto bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px] gap-1.5"
             onClick={() => {
-              setEditTarget(undefined);
-              setModalOpen(true);
-            }}
-          >
+              setEditTarget(undefined)
+              setModalOpen(true)
+            }}>
             <Plus size={14} /> เพิ่มกลุ่มเรียน
           </Button>
         </div>
@@ -616,8 +614,7 @@ export default function AdminSectionsPage() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap"
-                    >
+                      className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -625,20 +622,19 @@ export default function AdminSectionsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
                 {filtered.map((s) => {
-                  const pct = ((s.capacity - s.available) / s.capacity) * 100;
-                  const full = s.available === 0;
+                  const pct = ((s.capacity - s.available) / s.capacity) * 100
+                  const full = s.available === 0
                   // Build schedule summary from schedules array
                   const scheduleStr =
                     s.schedules
                       ?.map(
                         (sch) => `${sch.day} ${sch.start_time}-${sch.end_time}`,
                       )
-                      .join(", ") ?? "—";
+                      .join(", ") ?? "—"
                   return (
                     <tr
                       key={s.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                    >
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="px-4 py-3">
                         <p className="font-medium text-slate-800 dark:text-slate-100">
                           {s.courseId}
@@ -668,15 +664,13 @@ export default function AdminSectionsPage() {
                             />
                           </div>
                           <span
-                            className={`text-[12px] whitespace-nowrap ${full ? "text-red-500 font-medium" : "text-slate-500"}`}
-                          >
+                            className={`text-[12px] whitespace-nowrap ${full ? "text-red-500 font-medium" : "text-slate-500"}`}>
                             {s.available}/{s.capacity}
                           </span>
                           {full && (
                             <Badge
                               variant="destructive"
-                              className="text-[10px] py-0"
-                            >
+                              className="text-[10px] py-0">
                               เต็ม
                             </Badge>
                           )}
@@ -689,10 +683,9 @@ export default function AdminSectionsPage() {
                             size="sm"
                             className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
                             onClick={() => {
-                              setEditTarget(s);
-                              setModalOpen(true);
-                            }}
-                          >
+                              setEditTarget(s)
+                              setModalOpen(true)
+                            }}>
                             <Pencil size={13} />
                           </Button>
                           <Button
@@ -701,24 +694,22 @@ export default function AdminSectionsPage() {
                             className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"
                             onClick={async () => {
                               if (confirm("ลบกลุ่มเรียนนี้?")) {
-                                await courseService.deleteSection(s.id);
-                                fetchCourses();
+                                await courseService.deleteSection(s.id)
+                                fetchCourses()
                               }
-                            }}
-                          >
+                            }}>
                             <Trash2 size={13} />
                           </Button>
                         </div>
                       </td>
                     </tr>
-                  );
+                  )
                 })}
                 {filtered.length === 0 && (
                   <tr>
                     <td
                       colSpan={7}
-                      className="py-16 text-center text-slate-400"
-                    >
+                      className="py-16 text-center text-slate-400">
                       <Layers size={32} className="mx-auto mb-2 opacity-30" />
                       ไม่พบกลุ่มเรียน
                     </td>
@@ -734,9 +725,9 @@ export default function AdminSectionsPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
-        courses={courses}
+        courses={courses || []} // ✅ 3. เติม || [] กันไว้ตรงนี้อีกจุด
         editSection={editTarget}
       />
     </ProtectedLayout>
-  );
+  )
 }

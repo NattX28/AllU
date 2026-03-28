@@ -1,31 +1,31 @@
-"use client";
+"use client"
 
-import { useEffect, useRef, useState } from "react";
-import { courseService } from "@/services/courseService";
+import { useEffect, useRef, useState } from "react"
+import { courseService } from "@/services/courseService"
 import type {
   CourseResponse,
   CreateCourseRequest,
   UpdateCourseRequest,
-} from "@/types";
-import ProtectedLayout from "@/components/layout/ProtectedLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+} from "@/types"
+import ProtectedLayout from "@/components/layout/ProtectedLayout"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog"
 import {
   Plus,
   Pencil,
@@ -34,7 +34,7 @@ import {
   BookMarked,
   Loader2,
   Upload,
-} from "lucide-react";
+} from "lucide-react"
 
 // ─── Category config ──────────────────────────────────────────
 const CATEGORIES = [
@@ -55,21 +55,18 @@ const CATEGORIES = [
     color:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400",
   },
-] as const;
+] as const
 
 function CategoryBadge({ category }: { category: string }) {
-  const cat = CATEGORIES.find((c) => c.value === category?.toUpperCase());
+  const cat = CATEGORIES.find((c) => c.value === category?.toUpperCase())
   if (!cat)
-    return (
-      <span className="text-slate-400 text-[12px]">{category || "—"}</span>
-    );
+    return <span className="text-slate-400 text-[12px]">{category || "—"}</span>
   return (
     <span
-      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${cat.color}`}
-    >
+      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${cat.color}`}>
       {cat.label}
     </span>
-  );
+  )
 }
 
 // ─── Course Modal ─────────────────────────────────────────────
@@ -80,26 +77,26 @@ function CourseModal({
   initial,
   allCourses,
 }: {
-  open: boolean;
-  onClose: () => void;
+  open: boolean
+  onClose: () => void
   onSave: (
     data: CreateCourseRequest | UpdateCourseRequest,
     isEdit: boolean,
-  ) => Promise<void>;
-  initial?: CourseResponse;
-  allCourses: CourseResponse[];
+  ) => Promise<void>
+  initial?: CourseResponse
+  allCourses: CourseResponse[]
 }) {
-  const isEdit = !!initial;
-  const [saving, setSaving] = useState(false);
-  const [prereqInput, setPrereqInput] = useState("");
-  const [prereqIds, setPrereqIds] = useState<string[]>([]);
+  const isEdit = !!initial
+  const [saving, setSaving] = useState(false)
+  const [prereqInput, setPrereqInput] = useState("")
+  const [prereqIds, setPrereqIds] = useState<string[]>([])
   const [form, setForm] = useState({
     id: initial?.id ?? "",
     name_th: initial?.name_th ?? "",
     name_en: initial?.name_en ?? "",
     credits: initial?.credits ?? 3,
     category: initial?.category ?? "",
-  });
+  })
 
   // Reset on open
   useEffect(() => {
@@ -110,24 +107,24 @@ function CourseModal({
         name_en: initial?.name_en ?? "",
         credits: initial?.credits ?? 3,
         category: initial?.category ?? "",
-      });
-      setPrereqIds([]);
-      setPrereqInput("");
+      })
+      setPrereqIds([])
+      setPrereqInput("")
     }
-  }, [open, initial]);
+  }, [open, initial])
 
   const set = (k: string, v: string | number) =>
-    setForm((p) => ({ ...p, [k]: v }));
+    setForm((p) => ({ ...p, [k]: v }))
 
   const addPrereq = () => {
-    const id = prereqInput.trim().toUpperCase();
-    if (id && !prereqIds.includes(id)) setPrereqIds((p) => [...p, id]);
-    setPrereqInput("");
-  };
+    const id = prereqInput.trim().toUpperCase()
+    if (id && !prereqIds.includes(id)) setPrereqIds((p) => [...p, id])
+    setPrereqInput("")
+  }
 
   const handleSave = async () => {
-    if (!form.category) return alert("กรุณาเลือกหมวดวิชา");
-    setSaving(true);
+    if (!form.category) return alert("กรุณาเลือกหมวดวิชา")
+    setSaving(true)
     try {
       if (isEdit)
         await onSave(
@@ -139,7 +136,7 @@ function CourseModal({
             prerequisite_ids: prereqIds,
           },
           true,
-        );
+        )
       else
         await onSave(
           {
@@ -151,22 +148,22 @@ function CourseModal({
             prerequisite_ids: prereqIds,
           },
           false,
-        );
-      onClose();
+        )
+      onClose()
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
   const suggestions = prereqInput
-    ? allCourses
+    ? (allCourses || [])
         .filter(
           (c) =>
-            c.id.toLowerCase().includes(prereqInput.toLowerCase()) &&
+            (c.id?.toLowerCase() || "").includes(prereqInput.toLowerCase()) &&
             !prereqIds.includes(c.id),
         )
         .slice(0, 5)
-    : [];
+    : []
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -203,8 +200,7 @@ function CourseModal({
             <Label className="text-xs text-slate-500">หมวดวิชา</Label>
             <Select
               value={form.category}
-              onValueChange={(v) => set("category", v)}
-            >
+              onValueChange={(v) => set("category", v)}>
               <SelectTrigger className="h-9 text-[13px]">
                 <SelectValue placeholder="เลือกหมวดวิชา" />
               </SelectTrigger>
@@ -255,8 +251,7 @@ function CourseModal({
             <Button
               variant="outline"
               className="h-9 text-[13px]"
-              onClick={addPrereq}
-            >
+              onClick={addPrereq}>
               เพิ่ม
             </Button>
             {suggestions.length > 0 && (
@@ -266,10 +261,9 @@ function CourseModal({
                     key={c.id}
                     className="w-full flex gap-2 px-3 py-2 text-[13px] hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                     onClick={() => {
-                      setPrereqIds((p) => [...p, c.id]);
-                      setPrereqInput("");
-                    }}
-                  >
+                      setPrereqIds((p) => [...p, c.id])
+                      setPrereqInput("")
+                    }}>
                     <span className="font-medium">{c.id}</span>
                     <span className="text-slate-400 truncate">{c.name_en}</span>
                   </button>
@@ -283,8 +277,7 @@ function CourseModal({
                 key={id}
                 variant="secondary"
                 className="text-[11px] cursor-pointer hover:bg-red-100 hover:text-red-600"
-                onClick={() => setPrereqIds((p) => p.filter((x) => x !== id))}
-              >
+                onClick={() => setPrereqIds((p) => p.filter((x) => x !== id))}>
                 {id} ✕
               </Badge>
             ))}
@@ -295,38 +288,45 @@ function CourseModal({
           <Button
             variant="outline"
             onClick={onClose}
-            className="h-9 text-[13px]"
-          >
+            className="h-9 text-[13px]">
             ยกเลิก
           </Button>
           <Button
             className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px]"
             onClick={handleSave}
-            disabled={saving}
-          >
+            disabled={saving}>
             {saving && <Loader2 size={13} className="animate-spin mr-1" />}
             {isEdit ? "บันทึก" : "สร้างวิชา"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 // ─── Page ─────────────────────────────────────────────────────
 export default function AdminCoursesPage() {
-  const [courses, setCourses] = useState<CourseResponse[]>([]);
-  const [search, setSearch] = useState("");
-  const [filterCat, setFilterCat] = useState("all");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<CourseResponse | undefined>();
-  const importRef = useRef<HTMLInputElement>(null);
+  const [courses, setCourses] = useState<CourseResponse[]>([])
+  const [search, setSearch] = useState("")
+  const [filterCat, setFilterCat] = useState("all")
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<CourseResponse | undefined>()
+  const importRef = useRef<HTMLInputElement>(null)
 
   const fetchCourses = () =>
-    courseService.getAll().then(setCourses).catch(console.error);
+    courseService
+      .getAll()
+      .then((data) => {
+        // ตรวจสอบว่าถ้า data เป็น null หรือไม่ใช่ array ให้เซตเป็น [] แทน
+        setCourses(Array.isArray(data) ? data : [])
+      })
+      .catch((err) => {
+        console.error(err)
+        setCourses([]) // ถ้า error ก็เซตเป็น array ว่างไว้ก่อน
+      })
   useEffect(() => {
-    fetchCourses();
-  }, []);
+    fetchCourses()
+  }, [])
 
   const handleSave = async (
     data: CreateCourseRequest | UpdateCourseRequest,
@@ -336,27 +336,31 @@ export default function AdminCoursesPage() {
       await courseService.updateCourse(
         editTarget.id,
         data as UpdateCourseRequest,
-      );
-    else await courseService.createCourse(data as CreateCourseRequest);
-    fetchCourses();
-  };
+      )
+    else await courseService.createCourse(data as CreateCourseRequest)
+    fetchCourses()
+  }
 
-  const filtered = courses.filter((c) => {
+  const filtered = (courses || []).filter((c) => {
+    const searchLower = search.toLowerCase()
+
+    // ป้องกัน c.id, c.name_en, c.name_th เป็น null
     const matchSearch =
-      c.id.toLowerCase().includes(search.toLowerCase()) ||
-      c.name_en.toLowerCase().includes(search.toLowerCase()) ||
-      c.name_th.includes(search);
+      (c.id?.toLowerCase() || "").includes(searchLower) ||
+      (c.name_en?.toLowerCase() || "").includes(searchLower) ||
+      (c.name_th || "").includes(search)
+
     const matchCat =
-      filterCat === "all" || c.category?.toUpperCase() === filterCat;
-    return matchSearch && matchCat;
-  });
+      filterCat === "all" || c.category?.toUpperCase() === filterCat
+
+    return matchSearch && matchCat
+  })
 
   return (
     <ProtectedLayout
       title="จัดการรายวิชา"
       subtitle={`${courses.length} วิชาทั้งหมด`}
-      allowedRoles={["admin"]}
-    >
+      allowedRoles={["admin"]}>
       <main className="flex-1 overflow-y-auto p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-48">
@@ -393,28 +397,26 @@ export default function AdminCoursesPage() {
             accept=".xlsx,.xls"
             className="hidden"
             onChange={async (e) => {
-              const f = e.target.files?.[0];
+              const f = e.target.files?.[0]
               if (f) {
-                await courseService.importCourses(f);
-                fetchCourses();
+                await courseService.importCourses(f)
+                fetchCourses()
               }
-              e.target.value = "";
+              e.target.value = ""
             }}
           />
           <Button
             variant="outline"
             className="h-9 text-[13px] gap-1.5"
-            onClick={() => importRef.current?.click()}
-          >
+            onClick={() => importRef.current?.click()}>
             <Upload size={14} /> นำเข้า Excel
           </Button>
           <Button
             className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px] gap-1.5"
             onClick={() => {
-              setEditTarget(undefined);
-              setModalOpen(true);
-            }}
-          >
+              setEditTarget(undefined)
+              setModalOpen(true)
+            }}>
             <Plus size={14} /> เพิ่มวิชา
           </Button>
         </div>
@@ -434,8 +436,7 @@ export default function AdminCoursesPage() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap"
-                    >
+                      className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -445,8 +446,7 @@ export default function AdminCoursesPage() {
                 {filtered.map((c) => (
                   <tr
                     key={c.id}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                  >
+                    className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                     <td className="px-4 py-3 font-medium font-mono text-slate-800 dark:text-slate-100">
                       {c.id}
                     </td>
@@ -474,10 +474,9 @@ export default function AdminCoursesPage() {
                           size="sm"
                           className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
                           onClick={() => {
-                            setEditTarget(c);
-                            setModalOpen(true);
-                          }}
-                        >
+                            setEditTarget(c)
+                            setModalOpen(true)
+                          }}>
                           <Pencil size={13} />
                         </Button>
                         <Button
@@ -486,11 +485,10 @@ export default function AdminCoursesPage() {
                           className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"
                           onClick={async () => {
                             if (confirm(`ลบ ${c.id}?`)) {
-                              await courseService.deleteCourse(c.id);
-                              fetchCourses();
+                              await courseService.deleteCourse(c.id)
+                              fetchCourses()
                             }
-                          }}
-                        >
+                          }}>
                           <Trash2 size={13} />
                         </Button>
                       </div>
@@ -501,8 +499,7 @@ export default function AdminCoursesPage() {
                   <tr>
                     <td
                       colSpan={6}
-                      className="py-16 text-center text-slate-400"
-                    >
+                      className="py-16 text-center text-slate-400">
                       <BookMarked
                         size={32}
                         className="mx-auto mb-2 opacity-30"
@@ -525,5 +522,5 @@ export default function AdminCoursesPage() {
         allCourses={courses}
       />
     </ProtectedLayout>
-  );
+  )
 }

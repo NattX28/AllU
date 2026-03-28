@@ -9,7 +9,11 @@ import type {
 } from "@/types"
 
 export const courseService = {
-  getAll: () => api.get<CourseResponse[]>("/courses").then((r) => r.data),
+  getAll: () =>
+    api
+      .get<CourseResponse[]>("/courses")
+      .then((r) => r.data || [])
+      .catch(() => []),
 
   getById: (id: string) =>
     api.get<CourseDetailResponse>(`/courses/${id}`).then((r) => r.data),
