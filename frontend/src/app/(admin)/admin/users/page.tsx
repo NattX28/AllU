@@ -1,32 +1,32 @@
-"use client";
+"use client"
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { userService } from "@/services/userService";
+import { useCallback, useEffect, useRef, useState } from "react"
+import { userService } from "@/services/userService"
 import type {
   GetMeResponse,
   UserFilterQuery,
   CreateUserRequest,
   UpdateUserAdminRequest,
   Role,
-} from "@/types";
-import ProtectedLayout from "@/components/layout/ProtectedLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/types"
+import ProtectedLayout from "@/components/layout/ProtectedLayout"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog"
 import {
   Search,
   Plus,
@@ -37,15 +37,15 @@ import {
   ChevronRight,
   Loader2,
   Users,
-} from "lucide-react";
+} from "lucide-react"
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 20
 const ROLE_BADGE: Record<string, string> = {
   student: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
   professor:
     "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
   admin: "bg-[#AC3520]/10 text-[#AC3520]",
-};
+}
 
 function UserModal({
   open,
@@ -53,17 +53,17 @@ function UserModal({
   onSave,
   initial,
 }: {
-  open: boolean;
-  onClose: () => void;
+  open: boolean
+  onClose: () => void
   onSave: (
     data: CreateUserRequest | UpdateUserAdminRequest,
     isEdit: boolean,
-  ) => Promise<void>;
-  initial?: GetMeResponse;
+  ) => Promise<void>
+  initial?: GetMeResponse
 }) {
-  const isEdit = !!initial;
-  const [saving, setSaving] = useState(false);
-  const [role, setRole] = useState<Role>(initial?.role ?? "student");
+  const isEdit = !!initial
+  const [saving, setSaving] = useState(false)
+  const [role, setRole] = useState<Role>(initial?.role ?? "student")
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -81,12 +81,12 @@ function UserModal({
     major: initial?.student?.major ?? "",
     professor_id: initial?.professor?.professor_id ?? "",
     department: initial?.professor?.department ?? "",
-  });
+  })
 
   // Reset ทุกครั้งที่ modal เปิด
   useEffect(() => {
     if (open) {
-      setRole(initial?.role ?? "student");
+      setRole(initial?.role ?? "student")
       setForm({
         username: "",
         email: "",
@@ -105,17 +105,17 @@ function UserModal({
         major: initial?.student?.major ?? "",
         professor_id: initial?.professor?.professor_id ?? "",
         department: initial?.professor?.department ?? "",
-      });
+      })
     }
-  }, [open, initial]);
+  }, [open, initial])
   const set = (k: string, v: string | number) =>
-    setForm((p) => ({ ...p, [k]: v }));
+    setForm((p) => ({ ...p, [k]: v }))
 
   const handleSave = async () => {
-    setSaving(true);
+    setSaving(true)
     // แปลง "YYYY-MM-DD" → "YYYY-MM-DDT00:00:00Z" ที่ backend ต้องการ
     const formatBirthday = (b: string) =>
-      b && !b.includes("T") ? `${b}T00:00:00Z` : b || undefined;
+      b && !b.includes("T") ? `${b}T00:00:00Z` : b || undefined
 
     try {
       if (isEdit) {
@@ -141,7 +141,7 @@ function UserModal({
                 }),
           },
           true,
-        );
+        )
       } else {
         await onSave(
           {
@@ -168,13 +168,13 @@ function UserModal({
                 }),
           },
           false,
-        );
+        )
       }
-      onClose();
+      onClose()
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
   const field = (label: string, key: string, type = "text") => (
     <div className="space-y-1">
@@ -188,7 +188,7 @@ function UserModal({
         }
       />
     </div>
-  );
+  )
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -244,62 +244,63 @@ function UserModal({
           <Button
             variant="outline"
             onClick={onClose}
-            className="h-9 text-[13px]"
-          >
+            className="h-9 text-[13px]">
             ยกเลิก
           </Button>
           <Button
             className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px]"
             onClick={handleSave}
-            disabled={saving}
-          >
+            disabled={saving}>
             {saving && <Loader2 size={14} className="animate-spin mr-1" />}
             {isEdit ? "บันทึก" : "สร้างผู้ใช้"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<GetMeResponse[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<GetMeResponse | undefined>();
-  const importRef = useRef<HTMLInputElement>(null);
-  const [filter, setFilter] = useState<UserFilterQuery>({});
+  const [users, setUsers] = useState<GetMeResponse[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<GetMeResponse | undefined>()
+  const importRef = useRef<HTMLInputElement>(null)
+  const [filter, setFilter] = useState<UserFilterQuery>({})
+
+  // ✅ เพิ่ม state สำหรับปุ่มนำเข้า
+  const [importing, setImporting] = useState(false)
 
   const setF = (k: keyof UserFilterQuery, v: string | number | undefined) => {
-    setFilter((p) => ({ ...p, [k]: v }));
-    setPage(1);
-  };
+    setFilter((p) => ({ ...p, [k]: v }))
+    setPage(1)
+  }
 
   const fetchUsers = useCallback(async () => {
-    setLoading(true);
+    setLoading(true)
     try {
       const cleanFilter = Object.fromEntries(
         Object.entries(filter).filter(
           ([, v]) => v !== undefined && v !== "" && v !== "all",
         ),
-      );
+      )
       const res = await userService.getAllUsers({
         ...cleanFilter,
         page,
         limit: PAGE_SIZE,
-      });
-      setUsers(res.data ?? []);
-      setTotal(res.total ?? 0);
+      })
+      setUsers(res.data ?? [])
+      setTotal(res.total ?? 0)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [filter, page]);
+  }, [filter, page])
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchUsers()
+  }, [fetchUsers])
 
   const handleSave = async (
     data: CreateUserRequest | UpdateUserAdminRequest,
@@ -310,48 +311,52 @@ export default function AdminUsersPage() {
         await userService.updateUser(
           editTarget.id,
           data as UpdateUserAdminRequest,
-        );
-      else await userService.createUser(data as CreateUserRequest);
-      fetchUsers();
+        )
+      else await userService.createUser(data as CreateUserRequest)
+      fetchUsers()
     } catch (err) {
       const e = err as {
-        response?: { data?: { error?: string } };
-        message?: string;
-      };
-      console.error("handleSave error:", e?.response?.data ?? err);
+        response?: { data?: { error?: string } }
+        message?: string
+      }
+      console.error("handleSave error:", e?.response?.data ?? err)
       alert(
         `เกิดข้อผิดพลาด: ${e?.response?.data?.error ?? e?.message ?? "unknown"}`,
-      );
+      )
     }
-  };
+  }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("ยืนยันการลบ?")) return;
-    await userService.deleteUser(id);
-    fetchUsers();
-  };
+    if (!confirm("ยืนยันการลบ?")) return
+    await userService.deleteUser(id)
+    fetchUsers()
+  }
 
+  // ✅ แก้ไขฟังก์ชันให้จัดการ loading state สำหรับการนำเข้า
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      await userService.importUsers(file);
-      fetchUsers();
-      alert("นำเข้าสำเร็จ");
-    } catch {
-      alert("เกิดข้อผิดพลาด");
-    }
-    e.target.value = "";
-  };
+    const file = e.target.files?.[0]
+    if (!file) return
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+    setImporting(true) // เริ่มสถานะโหลด
+    try {
+      await userService.importUsers(file)
+      await fetchUsers() // รอให้ตารางโหลดใหม่เสร็จก่อน
+      alert("นำเข้าสำเร็จ")
+    } catch {
+      alert("เกิดข้อผิดพลาดในการนำเข้าไฟล์")
+    } finally {
+      setImporting(false) // ยกเลิกสถานะโหลดไม่ว่าจะสำเร็จหรือพัง
+      e.target.value = "" // รีเซ็ต input ให้เลือกไฟล์เดิมได้อีกครั้ง
+    }
+  }
+
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
     <ProtectedLayout
       title="จัดการผู้ใช้"
       subtitle={`ทั้งหมด ${total.toLocaleString()} คน`}
-      allowedRoles={["admin"]}
-    >
+      allowedRoles={["admin"]}>
       <main className="flex-1 overflow-y-auto p-6 space-y-4">
         {/* Filter bar */}
         <div className="flex flex-wrap items-center gap-3">
@@ -371,8 +376,7 @@ export default function AdminUsersPage() {
             value={filter.role ?? "all"}
             onValueChange={(v) =>
               setF("role", v === "all" ? undefined : (v as Role))
-            }
-          >
+            }>
             <SelectTrigger className="w-32 h-9 text-[13px]">
               <SelectValue placeholder="Role" />
             </SelectTrigger>
@@ -385,8 +389,7 @@ export default function AdminUsersPage() {
           </Select>
           <Select
             value={filter.gender ?? "all"}
-            onValueChange={(v) => setF("gender", v === "all" ? undefined : v)}
-          >
+            onValueChange={(v) => setF("gender", v === "all" ? undefined : v)}>
             <SelectTrigger className="w-28 h-9 text-[13px]">
               <SelectValue placeholder="เพศ" />
             </SelectTrigger>
@@ -437,10 +440,9 @@ export default function AdminUsersPage() {
             variant="outline"
             className="h-9 text-[13px] text-slate-500"
             onClick={() => {
-              setFilter({});
-              setPage(1);
-            }}
-          >
+              setFilter({})
+              setPage(1)
+            }}>
             ล้างตัวกรอง
           </Button>
           <div className="flex-1" />
@@ -451,20 +453,27 @@ export default function AdminUsersPage() {
             className="hidden"
             onChange={handleImport}
           />
+
+          {/* ✅ อัปเดตปุ่มนี้ให้รองรับการแสดงผล loading */}
           <Button
             variant="outline"
-            className="h-9 text-[13px] gap-1.5"
+            className="h-9 text-[13px] gap-1.5 w-32"
             onClick={() => importRef.current?.click()}
-          >
-            <Upload size={14} /> นำเข้า Excel
+            disabled={importing}>
+            {importing ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Upload size={14} />
+            )}
+            {importing ? "กำลังนำเข้า..." : "นำเข้า Excel"}
           </Button>
+
           <Button
             className="bg-[#AC3520] hover:bg-[#922d1a] text-white h-9 text-[13px] gap-1.5"
             onClick={() => {
-              setEditTarget(undefined);
-              setModalOpen(true);
-            }}
-          >
+              setEditTarget(undefined)
+              setModalOpen(true)
+            }}>
             <Plus size={14} /> เพิ่มผู้ใช้
           </Button>
         </div>
@@ -495,8 +504,7 @@ export default function AdminUsersPage() {
                     ].map((h) => (
                       <th
                         key={h}
-                        className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap"
-                      >
+                        className="px-4 py-3 text-left text-slate-500 font-medium border-b border-slate-100 dark:border-slate-700/40 whitespace-nowrap">
                         {h}
                       </th>
                     ))}
@@ -506,8 +514,7 @@ export default function AdminUsersPage() {
                   {users.map((u) => (
                     <tr
                       key={u.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
-                    >
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">
                         {u.name}
                       </td>
@@ -516,8 +523,7 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${ROLE_BADGE[u.role]}`}
-                        >
+                          className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium capitalize ${ROLE_BADGE[u.role]}`}>
                           {u.role}
                         </span>
                       </td>
@@ -557,18 +563,16 @@ export default function AdminUsersPage() {
                             size="sm"
                             className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
                             onClick={() => {
-                              setEditTarget(u);
-                              setModalOpen(true);
-                            }}
-                          >
+                              setEditTarget(u)
+                              setModalOpen(true)
+                            }}>
                             <Pencil size={13} />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"
-                            onClick={() => handleDelete(u.id)}
-                          >
+                            onClick={() => handleDelete(u.id)}>
                             <Trash2 size={13} />
                           </Button>
                         </div>
@@ -579,8 +583,7 @@ export default function AdminUsersPage() {
                     <tr>
                       <td
                         colSpan={11}
-                        className="py-16 text-center text-slate-400"
-                      >
+                        className="py-16 text-center text-slate-400">
                         <Users size={32} className="mx-auto mb-2 opacity-30" />
                         ไม่พบผู้ใช้
                       </td>
@@ -601,8 +604,7 @@ export default function AdminUsersPage() {
                   size="sm"
                   className="h-8 w-8 p-0"
                   disabled={page === 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
+                  onClick={() => setPage((p) => p - 1)}>
                   <ChevronLeft size={14} />
                 </Button>
                 <Button
@@ -610,8 +612,7 @@ export default function AdminUsersPage() {
                   size="sm"
                   className="h-8 w-8 p-0"
                   disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
+                  onClick={() => setPage((p) => p + 1)}>
                   <ChevronRight size={14} />
                 </Button>
               </div>
@@ -626,5 +627,5 @@ export default function AdminUsersPage() {
         initial={editTarget}
       />
     </ProtectedLayout>
-  );
+  )
 }

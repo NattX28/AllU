@@ -1,16 +1,16 @@
-"use client";
+"use client"
 
-import { useTheme } from "next-themes";
-import { Sun, Moon, Bell } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useTheme } from "next-themes"
+import { Sun, Moon, Bell } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface HeaderProps {
-  title: string;
-  subtitle?: string;
+  title: string
+  subtitle?: string
 }
 
 export default function Header({ title, subtitle }: HeaderProps) {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme()
 
   return (
     <header
@@ -22,8 +22,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
         borderBottom: "1px solid var(--glass-border-subtle)",
         boxShadow:
           "0 1px 0 var(--glass-border-subtle), 0 4px 16px rgba(0,0,0,0.03)",
-      }}
-    >
+      }}>
       <div className="fade-up">
         <h1
           className="text-[17px] font-semibold leading-tight"
@@ -31,15 +30,13 @@ export default function Header({ title, subtitle }: HeaderProps) {
             fontFamily: "'DM Sans', 'Sarabun', sans-serif",
             letterSpacing: "-0.02em",
             color: "var(--foreground)",
-          }}
-        >
+          }}>
           {title}
         </h1>
         {subtitle && (
           <p
             className="text-[12px] mt-0.5"
-            style={{ color: "var(--muted-foreground)" }}
-          >
+            style={{ color: "var(--muted-foreground)" }}>
             {subtitle}
           </p>
         )}
@@ -47,19 +44,6 @@ export default function Header({ title, subtitle }: HeaderProps) {
 
       <div className="flex items-center gap-1.5">
         {/* Notification */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-[10px] w-9 h-9 relative"
-          style={{ color: "var(--muted-foreground)" }}
-        >
-          <Bell size={16} />
-          {/* Notification dot */}
-          <span
-            className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full"
-            style={{ background: "#AC3520" }}
-          />
-        </Button>
 
         {/* Dark/Light toggle */}
         <Button
@@ -67,11 +51,10 @@ export default function Header({ title, subtitle }: HeaderProps) {
           size="icon"
           className="rounded-[10px] w-9 h-9"
           style={{ color: "var(--muted-foreground)" }}
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        >
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </Button>
       </div>
     </header>
-  );
+  )
 }
