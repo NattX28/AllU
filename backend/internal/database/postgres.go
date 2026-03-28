@@ -31,6 +31,7 @@ func ConnectDataBase() *gorm.DB {
 
 	log.Printf("Connected to database: %s successfully", os.Getenv("DB_NAME"))
 
+	// Open when want to migrate
 	// AutoMigrate(db)
 	return db
 }
