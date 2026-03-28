@@ -1,11 +1,11 @@
-import api from "@/lib/axios";
+import api from "@/lib/axios"
 import type {
   CheckSeatsResponse,
   ConfirmEnrollResponse,
   TimetableResponse,
   EnrollmentHistoryResponse,
   EnrollmentPeriodResponse,
-} from "@/types";
+} from "@/types"
 
 export const enrollService = {
   // ─── Seat Check ──────────────────────────────────────────
@@ -40,8 +40,8 @@ export const enrollService = {
   getActivePeriod: (): Promise<EnrollmentPeriodResponse | null> =>
     api
       .get<{
-        data: EnrollmentPeriodResponse | null;
-      }>("/enrollment-period/active")
+        data: EnrollmentPeriodResponse | null
+      }>("/enrollment-periods/active")
       .then((r) => r.data.data),
 
   // ─── Timetable (schedule page) ────────────────────────────
@@ -68,4 +68,4 @@ export const enrollService = {
         },
       })
       .then((r) => r.data),
-};
+}

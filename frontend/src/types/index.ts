@@ -383,3 +383,27 @@ export interface MyGradesResponse {
   total_credits: number
   courses: GradeDetails[]
 }
+
+// ─── Enrollment Period ───────────────────────────────────────────
+export interface EnrollmentPeriodResponse {
+  id: string
+  semester: number
+  academic_year: number
+  start_date: string
+  end_date: string
+  is_active: boolean
+}
+
+export interface CreateEnrollmentPeriodRequest {
+  semester: number
+  academic_year: number
+  start_date: string
+  end_date: string
+  is_active: boolean
+}
+
+export interface UpdateEnrollmentPeriodRequest {
+  start_date?: string
+  end_date?: string
+  is_active?: boolean
+}

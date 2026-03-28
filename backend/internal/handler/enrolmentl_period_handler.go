@@ -74,3 +74,15 @@ func (h *EnrollmentPeriodHandler) Update(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(res)
 }
+
+// GetAll — admin get all enrollment periods
+func (h *EnrollmentPeriodHandler) GetAll(c fiber.Ctx) error {
+	res, err := h.periodService.GetAll()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(res)
+}

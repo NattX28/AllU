@@ -122,3 +122,26 @@ func mapPeriodResponse(p models.EnrollmentPeriod) *dto.EnrollmentPeriodResponse 
 		IsActive:     p.IsActive,
 	}
 }
+
+// GetAll retrieves all enrollment periods (for admin)
+func (s *EnrollmentPeriodService) GetAll() ([]*dto.EnrollmentPeriodResponse, error) {
+	var periods []models.EnrollmentPeriod
+
+	// ดึงข้อมูลทั้งหมด เรียงตามปีการศึกษาและเทอมจากล่าสุดไปเก่าสุด
+	err := s.db.Order("academic_year DESC, semester DESC").Find(&periods).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*dto.EnrollmentPeriodResponse
+	for _, p := range periods {
+		result = append(result, mapPeriodResponse(p))
+	}
+
+	// ป้องกันไม่ให้ส่ง null กลับไปถ้าไม่มีข้อมูล ให้ส่ง [] (array ว่าง) แทน
+	if result == nil {
+		result = []*dto.EnrollmentPeriodResponse{}
+	}
+
+	return result, nil
+}
